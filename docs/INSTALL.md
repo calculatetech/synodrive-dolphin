@@ -8,7 +8,7 @@ Install Synology Drive 8.x before you build the extension. The installed client 
 
 Start Synology Drive and configure at least one synchronization folder.
 
-The build requires these packages:
+The source build requires these packages:
 
 - CMake 3.20 or newer
 - Ninja
@@ -26,6 +26,12 @@ sudo apt install cmake ninja-build python3 g++ qt6-base-dev libkf6kio-dev libnau
 ```
 
 The Nautilus application is not required. Only its extension runtime library is required.
+
+Fedora uses different package names. Install the source-build dependencies with:
+
+```bash
+sudo dnf install cmake gcc-c++ kf6-kio-devel ninja-build python3 qt6-qtbase-devel
+```
 
 ## Build
 
@@ -46,6 +52,30 @@ The build creates these delivery files:
 
 - `build/synodrive-status`
 - `build/synodrive-overlay.so`
+
+## Build package candidates
+
+Use Docker to build the official Ubuntu 26.04 DEB and Fedora 44 RPM:
+
+```bash
+./ci/package
+```
+
+The command writes these files:
+
+- `build/packages/ubuntu-26.04/synodrive-dolphin_0.3.0-1_amd64.deb`
+- `build/packages/fedora-44/synodrive-dolphin-0.3.0-1.x86_64.rpm`
+
+The command verifies package identity, payload, dependencies, and architecture. It does not install either package. SDD-005 must validate installation and removal before publication.
+
+For a native package build, install `dpkg-dev` and `file` for DEB output. Install `rpm-build` for RPM output. Then configure and build the source before you run one generator:
+
+```bash
+cpack --config build/CPackConfig.cmake -G DEB -B build/packages/host
+cpack --config build/CPackConfig.cmake -G RPM -B build/packages/host
+```
+
+Run only the generator that matches the package tools on the current system.
 
 ## Install
 
@@ -121,11 +151,12 @@ Internal major 4 remains supported when the private ABI checks pass. Other major
 
 ## Remove
 
-Remove the two installed files:
+Remove the three installed files:
 
 ```bash
 sudo rm /usr/bin/synodrive-status
 sudo rm "$(qtpaths6 --plugin-dir)/kf6/overlayicon/synodrive-overlay.so"
+sudo rm /usr/share/doc/synodrive-dolphin/copyright
 ```
 
 Then restart Dolphin. Removal does not change Synology Drive files, settings, or synchronization data.

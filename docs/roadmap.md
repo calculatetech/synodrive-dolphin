@@ -23,12 +23,6 @@ No task is active.
 
 ## Planned next
 
-- **SDD-004 — Produce DEB and RPM packages.**
-  - Use the CPack DEB and RPM generators.
-  - Publish one `synodrive-dolphin` package for each format on x86_64.
-  - Use generated shared-library dependencies.
-  - Do not include Synology software or require it from a distribution repository.
-
 - **SDD-005 — Test the package lifecycle.**
   - Install and remove each package in disposable Ubuntu and Fedora containers.
   - Validate the executable, plugin, license, metadata, permissions, and shared-library resolution.
@@ -100,6 +94,13 @@ The project does not plan these items for v1.0:
 Use `synodrive-status <absolute-path>` for command-line troubleshooting.
 
 ## Completed
+
+- **SDD-004 — Produce DEB and RPM packages.**
+  - Use the CPack DEB and RPM generators.
+  - Produce one `synodrive-dolphin` release candidate for each format on x86_64.
+  - Use generated shared-library dependencies.
+  - Do not include Synology software or require it from a distribution repository.
+  - Keep publication behind the SDD-005 package-lifecycle gate.
 
 - **SDD-001 — Publish the v0.1.0 proof of concept.**
   - The MIT-licensed release provides isolated Dolphin status overlays for Synology Drive `8.0.2-17889`.

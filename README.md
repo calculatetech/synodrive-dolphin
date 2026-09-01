@@ -11,13 +11,15 @@ Dolphin never loads the private Synology library. The status command isolates ea
 
 ## Supported system
 
-This release supports this configuration:
+The source build supports this configuration:
 
-- Debian or Ubuntu on AMD64
+- x86_64 Linux
 - Synology Drive 8.x with internal client major 4
 - Synology icon-overlay ABI directory `15`
 - Dolphin with KF6 and Qt 6
 - `libnautilus-extension4`
+
+The official package candidates target Ubuntu 26.04 and Fedora 44. Synology supports Ubuntu. Fedora depends on a community-packaged Synology Drive client.
 
 Other internal client majors and malformed client metadata fail without an overlay. The Synology interface is private and can change in a future release.
 
@@ -54,6 +56,14 @@ Run the full Ubuntu and Fedora distribution gate:
 ```
 
 The first run downloads and builds the toolchain images. Later runs reuse Docker image layers.
+
+Build and inspect both official package candidates:
+
+```bash
+./ci/package
+```
+
+This command writes one DEB and one RPM below `build/packages`. SDD-005 must validate installation and removal before publication.
 
 For a fast build on the current host, run:
 

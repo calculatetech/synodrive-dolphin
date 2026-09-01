@@ -1,5 +1,10 @@
 cmake_minimum_required(VERSION 3.20)
-project(synodrive-dolphin VERSION 0.2.0 LANGUAGES CXX)
+project(synodrive-dolphin
+    VERSION 0.3.0
+    DESCRIPTION "Synology Drive Dolphin Extension (Unofficial)"
+    HOMEPAGE_URL "https://github.com/calculatetech/synodrive-dolphin"
+    LANGUAGES CXX
+)
 
 include(CTest)
 include(GNUInstallDirs)
@@ -33,6 +38,10 @@ target_link_libraries(synodrive-overlay PRIVATE Qt6::Core ${KF6_KIOCORE_LIBRARY}
 set_target_properties(synodrive-overlay PROPERTIES PREFIX "")
 install(TARGETS synodrive-overlay
     LIBRARY DESTINATION ${QT6_INSTALL_PLUGINS}/kf6/overlayicon
+)
+install(FILES LICENSE
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/${PROJECT_NAME}
+    RENAME copyright
 )
 
 if(BUILD_TESTING)
@@ -87,4 +96,36 @@ if(BUILD_TESTING)
                 SYNODRIVE_TEST_SYNOLOGY_PLUGIN=$<TARGET_FILE:fake-synodrive-plugin>
                 $<TARGET_FILE:test-plugin>
     )
+    add_test(
+        NAME package-command
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/test_package_command.py
+                ${CMAKE_SOURCE_DIR}/ci/package
+    )
 endif()
+
+set(CPACK_PACKAGE_NAME "${PROJECT_NAME}")
+set(CPACK_PACKAGE_VENDOR "calculatetech")
+set(CPACK_PACKAGE_CONTACT "Michael Beutler <mikebeutler84@gmail.com>")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "${PROJECT_DESCRIPTION}")
+set(CPACK_PACKAGE_DESCRIPTION
+    "Adds Synology Drive file-status overlays to KDE Dolphin. Synology Drive is installed separately."
+)
+set(CPACK_PACKAGE_HOMEPAGE_URL "${PROJECT_HOMEPAGE_URL}")
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+set(CPACK_PACKAGING_INSTALL_PREFIX "/usr")
+
+set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
+set(CPACK_DEBIAN_PACKAGE_RELEASE "1")
+set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "dolphin, libnautilus-extension4")
+set(CPACK_DEBIAN_PACKAGE_SECTION "utils")
+set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
+
+set(CPACK_RPM_FILE_NAME RPM-DEFAULT)
+set(CPACK_RPM_PACKAGE_RELEASE "1")
+set(CPACK_RPM_PACKAGE_AUTOREQ ON)
+set(CPACK_RPM_PACKAGE_REQUIRES "dolphin, libnautilus-extension.so.4()(64bit)")
+set(CPACK_RPM_PACKAGE_LICENSE "MIT")
+set(CPACK_RPM_SPEC_MORE_DEFINE "Packager: ${CPACK_PACKAGE_CONTACT}")
+
+include(CPack)

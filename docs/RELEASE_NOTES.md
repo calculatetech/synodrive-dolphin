@@ -1,5 +1,14 @@
 # Release notes
 
+## 0.3.0 (unreleased)
+
+- Add native CPack DEB and RPM generation.
+- Add one command to build Ubuntu 26.04 and Fedora 44 x86_64 package candidates.
+- Verify package metadata, payload, dependencies, and target architecture.
+- Install the MIT license with source and package installs.
+
+Package publication remains blocked until SDD-005 validates installation and removal.
+
 ## 0.2.0
 
 - Support Synology Drive 8.x when its internal client major is 4.

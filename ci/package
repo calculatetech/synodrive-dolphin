@@ -1,0 +1,68 @@
+#!/bin/sh
+set -eu
+
+if [ "$#" -ne 0 ]; then
+    printf '%s\n' 'usage: ./ci/package' >&2
+    exit 2
+fi
+
+if [ "$(uname -m)" != x86_64 ]; then
+    printf '%s\n' 'error: ./ci/package requires x86_64' >&2
+    exit 1
+fi
+
+script_dir=${0%/*}
+repo_root=$(CDPATH= cd -- "$script_dir/.." && pwd)
+package_uid=$(id -u)
+package_gid=$(id -g)
+
+run_leg() {
+    label=$1
+    dockerfile=$2
+    image=$3
+    version=$4
+    format=$5
+    directory=$6
+    filename=$7
+    suffix=$8
+
+    output_dir=$repo_root/build/packages/$directory
+    artifact=$output_dir/$filename
+    mkdir -p "$output_dir"
+    find "$output_dir" -maxdepth 1 -type f -name "synodrive-dolphin*.$suffix" -delete
+
+    printf '%s\n' "==> $label"
+    docker build --file "$repo_root/ci/$dockerfile" --tag "$image" "$repo_root/ci"
+    docker run --rm --init --network none \
+        --mount "type=bind,source=$repo_root,target=/src,readonly" \
+        --mount "type=bind,source=$output_dir,target=/packages" \
+        --workdir /src \
+        --env "EXPECTED_VERSION=$version" \
+        --env "PACKAGE_FORMAT=$format" \
+        --env "PACKAGE_FILENAME=$filename" \
+        --env "PACKAGE_UID=$package_uid" \
+        --env "PACKAGE_GID=$package_gid" \
+        "$image" sh -eu -c '
+            . /etc/os-release
+            arch=$(uname -m)
+            printf "distribution=%s architecture=%s\n" "$VERSION_ID" "$arch"
+            test "$VERSION_ID" = "$EXPECTED_VERSION"
+            test "$arch" = x86_64
+            cmake -S /src -B /build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
+            cmake --build /build
+            cpack --config /build/CPackConfig.cmake -G "$PACKAGE_FORMAT" -B /packages
+
+            artifact=/packages/$PACKAGE_FILENAME
+            test -f "$artifact"
+            /src/ci/validate-package "$PACKAGE_FORMAT" "$artifact"
+            chown "$PACKAGE_UID:$PACKAGE_GID" "$artifact"
+        '
+    test -f "$artifact"
+}
+
+run_leg 'Ubuntu 26.04 package' ubuntu.Dockerfile synodrive-dolphin-ci:ubuntu-26.04 26.04 DEB ubuntu-26.04 synodrive-dolphin_0.3.0-1_amd64.deb deb
+run_leg 'Fedora 44 package' fedora.Dockerfile synodrive-dolphin-ci:fedora-44 44 RPM fedora-44 synodrive-dolphin-0.3.0-1.x86_64.rpm rpm
+
+printf '%s\n' \
+    "$repo_root/build/packages/ubuntu-26.04/synodrive-dolphin_0.3.0-1_amd64.deb" \
+    "$repo_root/build/packages/fedora-44/synodrive-dolphin-0.3.0-1.x86_64.rpm"

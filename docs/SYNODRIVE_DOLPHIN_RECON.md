@@ -137,9 +137,12 @@ The temporary install manifest contains only:
 ```text
 /usr/bin/synodrive-status
 /usr/lib/x86_64-linux-gnu/qt6/plugins/kf6/overlayicon/synodrive-overlay.so
+/usr/share/doc/synodrive-dolphin/copyright
 ```
 
-Neither file contains a Synology binary.
+No file contains a Synology binary.
+
+The v0.3.0 package candidates use CPack. The Ubuntu 26.04 DEB and Fedora 44 RPM contain the same three regular files. Native scanners generate linked-library dependencies. Explicit metadata adds Dolphin and the Nautilus extension runtime. Neither package requires or contains Synology software.
 
 ### Build and install
 

@@ -1,0 +1,60 @@
+#!/bin/sh
+set -eu
+
+if [ "$#" -ne 2 ]; then
+    printf '%s\n' 'usage: validate-package DEB|RPM ARTIFACT' >&2
+    exit 2
+fi
+
+format=$1
+artifact=$2
+plugin_root=$(qtpaths6 --plugin-dir)
+expected_payload=$(printf '%s\n' \
+    /usr/bin/synodrive-status \
+    "$plugin_root/kf6/overlayicon/synodrive-overlay.so" \
+    /usr/share/doc/synodrive-dolphin/copyright \
+    | sort)
+
+case $format in
+    DEB)
+        test "$(dpkg-deb -f "$artifact" Package)" = synodrive-dolphin
+        test "$(dpkg-deb -f "$artifact" Version)" = 0.3.0-1
+        test "$(dpkg-deb -f "$artifact" Architecture)" = amd64
+        test "$(dpkg-deb -f "$artifact" Maintainer)" = "Michael Beutler <mikebeutler84@gmail.com>"
+        test "$(dpkg-deb -f "$artifact" Homepage)" = https://github.com/calculatetech/synodrive-dolphin
+        test "$(dpkg-deb -f "$artifact" Section)" = utils
+        test "$(dpkg-deb -f "$artifact" Priority)" = optional
+        test "$(dpkg-deb -f "$artifact" Description | sed -n 1p)" = "Synology Drive Dolphin Extension (Unofficial)"
+        actual_payload=$(dpkg-deb -c "$artifact" \
+            | awk '$1 ~ /^-/ {sub(/^\./, "", $6); print $6}' \
+            | sort)
+        dependencies=$(dpkg-deb -f "$artifact" Depends)
+        dependency_names=$(printf '%s\n' "$dependencies" | tr , '\n' | sed 's/^ *//; s/ (.*$//')
+        for dependency in dolphin libnautilus-extension4 libc6 libgcc-s1 libkf6kiocore6 libqt6core6t64 libstdc++6; do
+            printf '%s\n' "$dependency_names" | grep -Fqx "$dependency"
+        done
+        ;;
+    RPM)
+        test "$(rpm -qp --qf '%{NAME}' "$artifact")" = synodrive-dolphin
+        test "$(rpm -qp --qf '%{VERSION}' "$artifact")" = 0.3.0
+        test "$(rpm -qp --qf '%{RELEASE}' "$artifact")" = 1
+        test "$(rpm -qp --qf '%{ARCH}' "$artifact")" = x86_64
+        test "$(rpm -qp --qf '%{SUMMARY}' "$artifact")" = "Synology Drive Dolphin Extension (Unofficial)"
+        test "$(rpm -qp --qf '%{LICENSE}' "$artifact")" = MIT
+        test "$(rpm -qp --qf '%{URL}' "$artifact")" = https://github.com/calculatetech/synodrive-dolphin
+        test "$(rpm -qp --qf '%{VENDOR}' "$artifact")" = calculatetech
+        test "$(rpm -qp --qf '%{PACKAGER}' "$artifact")" = "Michael Beutler <mikebeutler84@gmail.com>"
+        actual_payload=$(rpm -qpl --dump "$artifact" | awk '$5 ~ /^010/ {print $1}' | sort)
+        dependencies=$(rpm -qp --requires "$artifact")
+        for dependency in dolphin 'libnautilus-extension.so.4()(64bit)' 'libc.so.6()(64bit)' 'libgcc_s.so.1()(64bit)' 'libKF6KIOCore.so.6()(64bit)' 'libQt6Core.so.6()(64bit)' 'libstdc++.so.6()(64bit)'; do
+            printf '%s\n' "$dependencies" | grep -Fqx "$dependency"
+        done
+        ;;
+    *)
+        printf '%s\n' 'usage: validate-package DEB|RPM ARTIFACT' >&2
+        exit 2
+        ;;
+esac
+
+test "$actual_payload" = "$expected_payload"
+! printf '%s\n' "$dependencies" | grep -qi synology
