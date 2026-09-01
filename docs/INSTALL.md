@@ -4,7 +4,9 @@ This guide installs the Synology Drive Dolphin Extension (Unofficial) for all us
 
 ## Requirements
 
-Install Synology Drive `8.0.2-17889` before you build the extension. Start Synology Drive and configure at least one synchronization folder.
+Install Synology Drive 8.x before you build the extension. The installed client must report internal major 4 in `/opt/Synology/SynologyDrive/INFO`.
+
+Start Synology Drive and configure at least one synchronization folder.
 
 The build requires these packages:
 
@@ -109,7 +111,13 @@ sudo cmake --install build --prefix /usr
 
 Then restart Dolphin.
 
-After a Synology Drive upgrade, check the supported version before you reinstall the extension. Unsupported versions fail closed.
+After a Synology Drive upgrade, inspect the installed client metadata:
+
+```bash
+sed -n '/^\[Version\]$/,/^\[/p' /opt/Synology/SynologyDrive/INFO
+```
+
+Internal major 4 remains supported when the private ABI checks pass. Other majors and malformed metadata fail closed.
 
 ## Remove
 

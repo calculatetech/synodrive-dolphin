@@ -57,6 +57,7 @@ if(BUILD_TESTING)
         NAME cli
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/test_cli.py
                 $<TARGET_FILE:synodrive-status-test>
+                $<TARGET_FILE:synodrive-status>
                 $<TARGET_FILE:fake-synodrive-plugin>
                 $<TARGET_FILE:fake-synodrive-missing-symbol>
     )

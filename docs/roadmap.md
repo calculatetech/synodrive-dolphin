@@ -23,12 +23,6 @@ No task is active.
 
 ## Planned next
 
-- **SDD-003 — Support Synology Drive 8.x.**
-  - Read the installed client's internal `INFO` metadata instead of the Debian package version.
-  - Accept internal major 4, which corresponds to public Synology Drive 8.x.
-  - Continue to require icon-overlay ABI 15, the expected library, symbols, structure, and status range.
-  - Fail closed for malformed metadata, other majors, ABI changes, missing symbols, and unknown statuses.
-
 - **SDD-004 — Produce DEB and RPM packages.**
   - Use the CPack DEB and RPM generators.
   - Publish one `synodrive-dolphin` package for each format on x86_64.
@@ -108,6 +102,12 @@ Use `synodrive-status <absolute-path>` for command-line troubleshooting.
   - Provide one `./ci/run` command that builds and runs all tests in pinned `ubuntu:26.04` and `fedora:44` Docker containers.
   - Use the existing fake helper. Never download Synology software in CI.
   - Keep all GitHub Actions and branch protection work after `v1.0.0`.
+
+- **SDD-003 — Support Synology Drive 8.x.**
+  - Read the installed client's internal `INFO` metadata instead of the Debian package version.
+  - Accept internal major 4, which corresponds to public Synology Drive 8.x.
+  - Continue to require icon-overlay ABI 15, the expected library, symbols, structure, and status range.
+  - Fail closed for malformed metadata, other majors, ABI changes, missing symbols, and unknown statuses.
 
 Production readiness is complete when SDD-002 through SDD-005, SDD-007, and SDD-009 are complete.
 

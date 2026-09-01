@@ -6,6 +6,7 @@ This report records the local findings and the implementation result for this co
 
 The installed package is `synology-drive` version `8.0.2-17889` for AMD64. The relevant files are:
 
+- `/opt/Synology/SynologyDrive/INFO`, which reports internal client version `4.0.2-17889`
 - `/usr/lib/nautilus/extensions-4/libnautilus-drive-extension-4.so`
 - `/opt/Synology/SynologyDrive/package/cloudstation/icon-overlay/15/lib/plugin-cb-4.so`
 - `~/.SynologyDrive/SynologyDrive.app/icon-overlay/current`, which resolves to ABI directory `15`
@@ -38,7 +39,7 @@ Nautilus extension
     -> file-status.sqlite and sys.sqlite
 ```
 
-Debugger type information shows that `IconOverlayInfo` contains two integers: `enable` and `file_status`. This project uses that layout only after it verifies the exact package version and ABI directory.
+Debugger type information shows that `IconOverlayInfo` contains two integers: `enable` and `file_status`. This project uses that layout only after it verifies internal major 4 and ABI directory 15.
 
 ## 4. IPC, database, and metadata findings
 
@@ -99,19 +100,23 @@ Dolphin KOverlayIconPlugin
 
 ## 9. Fragility assessment
 
-The exact package version, ABI directory, mangled symbols, C++ struct layout, raw status values, helper path, and SQLite behavior can change after a Synology update. The executable checks the package version, ABI directory, library, symbols, exceptions, and raw range. An unsupported installation fails without an overlay.
+The internal metadata, ABI directory, mangled symbols, C++ struct layout, raw status values, helper path, and SQLite behavior can change after a Synology update. The executable accepts internal major 4 and checks the ABI directory, library, symbols, exceptions, and raw range. An unsupported installation fails without an overlay.
 
 NUL framing and the KF6 plugin interface are under this project's control. The private helper contract is not. Do not redistribute Synology binaries. A public release needs legal review.
 
 ## 10. Prototype and acceptance result
 
-The CLI fixture suite passes. It covers input validation, all six raw states, invalid values, an unavailable daemon seam, wrong version, wrong ABI, missing runtime, missing symbol, newline paths, split and coalesced stream frames, fresh query-child PIDs, a query error, and recovery through the same wrapper. Test overrides exist only in the test binary. The installed binary always checks the real package and runtime.
+The CLI fixture suite passes. It covers valid and malformed INFO metadata, supported majors, all six raw states, and invalid values.
+
+It also covers input errors, helper errors, newline paths, stream framing, query isolation, and wrapper recovery. Test overrides exist only in the test binary.
+
+The installed binary always checks the top-level client INFO file and the real runtime.
 
 The live check on 2026-09-01 produced these results:
 
 - Active sync root: `synced`
 - Outside root: `unknown`
-- First same-process unload design: stale `syncing` after the Synology interface reported completion; rejected
+- First same-process unload design: stale `syncing` after the Synology interface reported completion. Result: rejected
 - Fresh-child persistent wrapper: `syncing -> synced -> synced -> syncing -> syncing -> synced`
 - Wrapper after transition: alive
 - Unique file: `synodrive-overlay-test-1788240371250812885`

@@ -29,7 +29,7 @@ run_leg() {
             test "$arch" = x86_64 &&
             cmake -S /src -B /build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo &&
             cmake --build /build &&
-            ctest --test-dir /build --output-on-failure
+            SYNODRIVE_CONTAINER_RELEASE_TEST=1 ctest --test-dir /build --output-on-failure
         '
 }
 

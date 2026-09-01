@@ -61,7 +61,7 @@ Make sure that these conditions are true:
 
 - Synology Drive is running.
 - The file is inside a configured synchronization folder.
-- Synology Drive version `8.0.2-17889` is installed.
+- Synology Drive 8.x reports internal client major 4.
 - The `current` icon-overlay link resolves to ABI directory `15`.
 - `libnautilus-extension.so.4` is available.
 - The Dolphin plugin exists under the Qt 6 plugin directory.
@@ -69,7 +69,7 @@ Make sure that these conditions are true:
 Run these commands:
 
 ```bash
-dpkg-query -W -f='${Version}\n' synology-drive
+sed -n '/^\[Version\]$/,/^\[/p' /opt/Synology/SynologyDrive/INFO
 readlink -f "$HOME/.SynologyDrive/SynologyDrive.app/icon-overlay/current"
 ldconfig -p | grep libnautilus-extension.so.4
 test -f "$(qtpaths6 --plugin-dir)/kf6/overlayicon/synodrive-overlay.so"
@@ -81,7 +81,7 @@ Then query a known synchronized file:
 synodrive-status "/absolute/path/to/a/synced/file"
 ```
 
-The diagnostic on stderr identifies version, ABI, library, symbol, or helper errors. Restart Dolphin after you reinstall the plugin.
+The diagnostic on stderr identifies metadata, ABI, library, symbol, or helper errors. Restart Dolphin after you reinstall the plugin.
 
 ### An overlay is temporarily absent
 
@@ -91,9 +91,9 @@ If the helper fails, the plugin clears affected overlays. A later local request 
 
 ### Synology Drive was upgraded
 
-This project uses a private, version-specific Synology interface. Do not bypass the version or ABI check.
+This project uses a private Synology interface. Do not bypass the internal-major or ABI check.
 
-Use a release that explicitly supports the installed Synology Drive version. A new release must verify the private symbols, status values, and live transitions again.
+Internal client major 4 remains supported when all private ABI checks pass. A different internal major requires a new compatibility review.
 
 ## Privacy and file safety
 

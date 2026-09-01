@@ -14,12 +14,12 @@ Dolphin never loads the private Synology library. The status command isolates ea
 This release supports this configuration:
 
 - Debian or Ubuntu on AMD64
-- Synology Drive `8.0.2-17889`
+- Synology Drive 8.x with internal client major 4
 - Synology icon-overlay ABI directory `15`
 - Dolphin with KF6 and Qt 6
 - `libnautilus-extension4`
 
-Other Synology Drive versions fail without an overlay. The Synology interface is private and can change in a future release.
+Other internal client majors and malformed client metadata fail without an overlay. The Synology interface is private and can change in a future release.
 
 ## Status overlays
 

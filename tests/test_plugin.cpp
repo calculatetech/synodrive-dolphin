@@ -99,7 +99,15 @@ void PluginTest::init() {
             ".SynologyDrive/SynologyDrive.app/icon-overlay/15"), current));
     }
     qputenv("HOME", temporary_.path().toLocal8Bit());
-    qputenv("SYNODRIVE_STATUS_TEST_VERSION", "8.0.2-17889");
+    const QString info = temporary_.filePath("INFO");
+    QFile infoFile(info);
+    QVERIFY(infoFile.open(QIODevice::WriteOnly | QIODevice::Truncate));
+    const QByteArray metadata =
+        "[Package]\ninstaller = deb\n\n[Version]\nmajor_version = 4\n"
+        "minor_version = 0\nmini_version = 2\nbuild_version = 17889\n";
+    QCOMPARE(infoFile.write(metadata), metadata.size());
+    infoFile.close();
+    qputenv("SYNODRIVE_STATUS_TEST_INFO", info.toLocal8Bit());
     qputenv("SYNODRIVE_STATUS_TEST_NAUTILUS", synologyPlugin_.toLocal8Bit());
     qputenv("SYNODRIVE_STATUS_TEST_WRAPPER_PID_LOG", wrapperPid_.toLocal8Bit());
     qputenv("FAKE_SYNODRIVE_CONTROL", control_.toLocal8Bit());

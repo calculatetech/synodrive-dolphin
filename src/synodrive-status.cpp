@@ -7,7 +7,7 @@
 
 #include <array>
 #include <cerrno>
-#include <cstdio>
+#include <charconv>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -21,7 +21,7 @@ namespace fs = std::filesystem;
 
 namespace {
 
-constexpr std::string_view kSupportedVersion = "8.0.2-17889";
+constexpr std::string_view kClientInfo = "/opt/Synology/SynologyDrive/INFO";
 constexpr std::size_t kMaxFrame = 1024 * 1024;
 constexpr std::array<std::string_view, 6> kStatusNames = {
     "unknown", "synced", "syncing", "unsupported", "read-only", "no-permission"};
@@ -67,26 +67,78 @@ std::string environment(const char* name) {
     return value ? value : "";
 }
 
-std::string installedVersion() {
+std::string_view trim(std::string_view value) {
+    constexpr std::string_view whitespace = " \t\r\n\f\v";
+    const std::size_t first = value.find_first_not_of(whitespace);
+    if (first == std::string_view::npos) {
+        return {};
+    }
+    return value.substr(first, value.find_last_not_of(whitespace) - first + 1);
+}
+
+bool supportedInstalledVersion() {
+    fs::path path(kClientInfo);
 #ifdef SYNODRIVE_STATUS_TESTING
-    if (std::string value = environment("SYNODRIVE_STATUS_TEST_VERSION"); !value.empty()) {
-        return value;
+    if (std::string value = environment("SYNODRIVE_STATUS_TEST_INFO"); !value.empty()) {
+        path = value;
     }
 #endif
 
-    std::array<char, 128> buffer{};
-    std::string version;
-    FILE* pipe = popen("dpkg-query -W -f='${Version}' synology-drive 2>/dev/null", "r");
-    if (!pipe) {
-        return {};
+    std::ifstream input(path);
+    if (!input) {
+        return false;
     }
-    while (std::fgets(buffer.data(), static_cast<int>(buffer.size()), pipe)) {
-        version += buffer.data();
+
+    bool haveSection = false;
+    bool inVersion = false;
+    bool haveVersion = false;
+    std::optional<unsigned> major;
+    std::string storage;
+    while (std::getline(input, storage)) {
+        const std::string_view line = trim(storage);
+        if (line.empty() || line.front() == '#' || line.front() == ';') {
+            continue;
+        }
+        if (line.front() == '[') {
+            if (line.back() != ']') {
+                return false;
+            }
+            const std::string_view section = trim(line.substr(1, line.size() - 2));
+            if (section.empty() || section.find_first_of("[]") != std::string_view::npos) {
+                return false;
+            }
+            haveSection = true;
+            inVersion = section == "Version";
+            if (inVersion && haveVersion) {
+                return false;
+            }
+            haveVersion = haveVersion || inVersion;
+            continue;
+        }
+
+        const std::size_t equals = line.find('=');
+        if (!haveSection || equals == std::string_view::npos || trim(line.substr(0, equals)).empty()) {
+            return false;
+        }
+        if (!inVersion || trim(line.substr(0, equals)) != "major_version") {
+            continue;
+        }
+        if (major) {
+            return false;
+        }
+
+        const std::string_view value = trim(line.substr(equals + 1));
+        if (value.empty()) {
+            return false;
+        }
+        unsigned parsed = 0;
+        const auto [end, error] = std::from_chars(value.data(), value.data() + value.size(), parsed);
+        if (error != std::errc{} || end != value.data() + value.size()) {
+            return false;
+        }
+        major = parsed;
     }
-    if (pclose(pipe) != 0) {
-        return {};
-    }
-    return version;
+    return !input.bad() && haveVersion && major == 4;
 }
 
 fs::path overlayDirectory() {
@@ -108,8 +160,8 @@ std::string query(const std::string& path) {
     if (!fs::path(path).is_absolute()) {
         throw std::runtime_error("path must be absolute");
     }
-    if (installedVersion() != kSupportedVersion) {
-        throw std::runtime_error("unsupported Synology Drive version (expected 8.0.2-17889)");
+    if (!supportedInstalledVersion()) {
+        throw std::runtime_error("unsupported or malformed Synology Drive metadata (expected internal major 4)");
     }
 
 #ifdef SYNODRIVE_STATUS_TESTING
