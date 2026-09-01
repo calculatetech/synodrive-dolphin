@@ -1,0 +1,37 @@
+#!/bin/sh
+set -eu
+
+if [ "$#" -ne 0 ]; then
+    printf '%s\n' 'usage: ./ci/run' >&2
+    exit 2
+fi
+
+script_dir=${0%/*}
+repo_root=$(CDPATH= cd -- "$script_dir/.." && pwd)
+
+run_leg() {
+    label=$1
+    dockerfile=$2
+    image=$3
+    version=$4
+
+    printf '%s\n' "==> $label"
+    docker build --file "$repo_root/ci/$dockerfile" --tag "$image" "$repo_root/ci"
+    docker run --rm --init --network none \
+        --mount "type=bind,source=$repo_root,target=/src,readonly" \
+        --workdir /src \
+        --env "EXPECTED_VERSION=$version" \
+        "$image" sh -eu -c '
+            . /etc/os-release
+            arch=$(uname -m)
+            printf "distribution=%s architecture=%s\n" "$VERSION_ID" "$arch"
+            test "$VERSION_ID" = "$EXPECTED_VERSION" &&
+            test "$arch" = x86_64 &&
+            cmake -S /src -B /build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo &&
+            cmake --build /build &&
+            ctest --test-dir /build --output-on-failure
+        '
+}
+
+run_leg 'Ubuntu 26.04' ubuntu.Dockerfile synodrive-dolphin-ci:ubuntu-26.04 26.04
+run_leg 'Fedora 44' fedora.Dockerfile synodrive-dolphin-ci:fedora-44 44

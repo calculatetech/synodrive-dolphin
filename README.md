@@ -45,7 +45,15 @@ Read the [production-readiness roadmap](docs/roadmap.md) for accepted packaging,
 
 ## Development
 
-Build and run all automated checks:
+Run the full Ubuntu and Fedora distribution gate:
+
+```bash
+./ci/run
+```
+
+The first run downloads and builds the toolchain images. Later runs reuse Docker image layers.
+
+For a fast build on the current host, run:
 
 ```bash
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo

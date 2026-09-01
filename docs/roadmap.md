@@ -23,11 +23,6 @@ No task is active.
 
 ## Planned next
 
-- **SDD-002 — Add distribution CI.**
-  - Build and run the tests in pinned `ubuntu:26.04` and `fedora:44` GitHub Actions containers.
-  - Run the workflow for pushes and pull requests.
-  - Use the existing fake helper. Never download Synology software in CI.
-
 - **SDD-003 — Support Synology Drive 8.x.**
   - Read the installed client's internal `INFO` metadata instead of the Debian package version.
   - Accept internal major 4, which corresponds to public Synology Drive 8.x.
@@ -45,13 +40,6 @@ No task is active.
   - Validate the executable, plugin, license, metadata, permissions, and shared-library resolution.
   - Make sure that package removal leaves no owned files.
   - Add an upgrade test after the first packaged release exists.
-
-- **SDD-006 — Automate tagged releases.**
-  - For a `vX.Y.Z` tag, require the tag and CMake project version to match.
-  - Run all tests and build both packages.
-  - Generate `SHA256SUMS` and GitHub provenance attestations.
-  - Attach the packages, checksums, and attestations to the GitHub release.
-  - Use minimum workflow permissions.
 
 - **SDD-007 — Prove context-menu integration.**
   - Build a bounded prototype against the installed private helper.
@@ -75,6 +63,20 @@ No task is active.
   - Request Fedora runtime reports and encourage fixes through pull requests.
   - Complete a real Ubuntu desktop smoke test for overlays, live transitions, Dolphin restart, context actions, and removal.
   - Complete the final correctness and documentation reviews before the `v1.0.0` tag.
+
+- **SDD-010 — Add protected GitHub CI after v1.0.**
+  - Start this task only after the `v1.0.0` release.
+  - Run the local distribution gate for pushes and pull requests without path filters.
+  - Give the workflow one unique required status check.
+  - Require that check on `main` through branch protection.
+
+- **SDD-006 — Automate tagged releases after v1.0.**
+  - Start this task only after the `v1.0.0` release and SDD-010.
+  - For a `vX.Y.Z` tag, require the tag and CMake project version to match.
+  - Run all tests and build both packages.
+  - Generate `SHA256SUMS` and GitHub provenance attestations.
+  - Attach the packages, checksums, and attestations to the GitHub release.
+  - Use minimum workflow permissions.
 
 ## Accepted residual risk
 
@@ -102,6 +104,11 @@ Use `synodrive-status <absolute-path>` for command-line troubleshooting.
 - **SDD-001 — Publish the v0.1.0 proof of concept.**
   - The MIT-licensed release provides isolated Dolphin status overlays for Synology Drive `8.0.2-17889`.
 
-Production readiness is complete when SDD-002 through SDD-007 and SDD-009 are complete.
+- **SDD-002 — Add local distribution CI.**
+  - Provide one `./ci/run` command that builds and runs all tests in pinned `ubuntu:26.04` and `fedora:44` Docker containers.
+  - Use the existing fake helper. Never download Synology software in CI.
+  - Keep all GitHub Actions and branch protection work after `v1.0.0`.
+
+Production readiness is complete when SDD-002 through SDD-005, SDD-007, and SDD-009 are complete.
 
 SDD-008 must be complete or declined with evidence from SDD-007. Each non-trivial task gets an ExecPlan when it becomes active.
