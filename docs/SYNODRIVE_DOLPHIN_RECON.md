@@ -1,4 +1,4 @@
-# Synology Drive status integration for Dolphin
+# Synology Drive Dolphin Extension (Unofficial): technical report
 
 This report records the local findings and the implementation result for this computer. The interface is private and version-specific.
 

@@ -1,6 +1,6 @@
-# Dolphin Drive
+# Synology Drive Dolphin Extension (Unofficial)
 
-Dolphin Drive shows Synology Drive file-status overlays in the Dolphin file manager.
+The Synology Drive Dolphin Extension (Unofficial) shows Synology Drive file-status overlays in the Dolphin file manager.
 
 The project contains two components:
 
@@ -55,6 +55,6 @@ The tests use fake Synology helpers. They do not stop or modify the active Synol
 
 ## License and third-party software
 
-Dolphin Drive is licensed under the [MIT License](LICENSE).
+The Synology Drive Dolphin Extension (Unofficial) is licensed under the [MIT License](LICENSE).
 
 Synology Drive, its libraries, and its data are not part of this project. The MIT License does not grant rights to Synology software.

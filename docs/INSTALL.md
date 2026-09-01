@@ -1,10 +1,10 @@
 # Installation
 
-This guide installs Dolphin Drive for all users on the supported Linux system.
+This guide installs the Synology Drive Dolphin Extension (Unofficial) for all users on the supported Linux system.
 
 ## Requirements
 
-Install Synology Drive `8.0.2-17889` before you build Dolphin Drive. Start Synology Drive and configure at least one synchronization folder.
+Install Synology Drive `8.0.2-17889` before you build the extension. Start Synology Drive and configure at least one synchronization folder.
 
 The build requires these packages:
 
@@ -109,7 +109,7 @@ sudo cmake --install build --prefix /usr
 
 Then restart Dolphin.
 
-After a Synology Drive upgrade, check the supported version before you reinstall Dolphin Drive. Unsupported versions fail closed.
+After a Synology Drive upgrade, check the supported version before you reinstall the extension. Unsupported versions fail closed.
 
 ## Remove
 

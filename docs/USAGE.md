@@ -1,6 +1,6 @@
 # Usage
 
-Dolphin Drive operates automatically after installation. It adds overlays to local files that Synology Drive knows about.
+The Synology Drive Dolphin Extension (Unofficial) operates automatically after installation. It adds overlays to local files that Synology Drive knows about.
 
 ## Use Dolphin overlays
 
@@ -8,7 +8,7 @@ Dolphin Drive operates automatically after installation. It adds overlays to loc
 2. Open a configured Synology Drive folder in Dolphin.
 3. Wait for Dolphin to request the file status.
 
-A new or changed status usually appears within two seconds for a visible file. Dolphin Drive removes cached entries that Dolphin does not request for 30 seconds.
+A new or changed status usually appears within two seconds for a visible file. The extension removes entries that Dolphin does not request for 30 seconds.
 
 The plugin does not add overlays to remote URLs. Unknown and unsupported files have no overlay.
 
@@ -97,6 +97,6 @@ Use a release that explicitly supports the installed Synology Drive version. A n
 
 ## Privacy and file safety
 
-Dolphin Drive sends local path names only to the locally installed Synology helper. It does not call a public NAS or Internet API.
+The extension sends local path names only to the locally installed Synology helper. It does not call a public NAS or Internet API.
 
 The project does not modify Synology databases or synchronization data. SQLite can open its WAL and shared-memory coordination files during a query.
