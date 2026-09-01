@@ -45,11 +45,17 @@ private slots:
     void composesReviewedCli();
     void mappings_data();
     void mappings();
+    void stableRefreshesOnlyOnDemand_data();
+    void stableRefreshesOnlyOnDemand();
+    void syncingPollsUntilStable();
+    void mixedCacheDoesNotPollStable();
+    void notifiesOnlyOnOverlayChange();
     void returnsBeforeHeldResponse();
     void preservesDistinctQueuedPaths();
     void failsEveryQueuedPath();
     void refreshesAndRecovers();
     void helperUnavailable();
+    void prunesInactiveCache_data();
     void prunesInactiveCache();
     void destructionDoesNotWait();
 
@@ -196,8 +202,135 @@ void PluginTest::mappings() {
     control(status);
     SynodriveOverlayPlugin plugin(nullptr, helper_);
     QSignalSpy changed(&plugin, &KOverlayIconPlugin::overlaysChanged);
-    plugin.getOverlays(QUrl::fromLocalFile("/tmp/mapping"));
-    QTRY_VERIFY(hasOverlay(changed, overlay));
+    const QUrl url = QUrl::fromLocalFile("/tmp/mapping");
+    plugin.getOverlays(url);
+    QTRY_COMPARE(logLines().size(), 1);
+    if (overlay.isEmpty()) {
+        QTest::qWait(50);
+        QCOMPARE(changed.count(), 0);
+        QCOMPARE(plugin.getOverlays(url), overlay);
+    } else {
+        QTRY_VERIFY(hasOverlay(changed, overlay));
+    }
+}
+
+void PluginTest::stableRefreshesOnlyOnDemand_data() {
+    QTest::addColumn<QByteArray>("status");
+    QTest::newRow("unknown") << QByteArray("unknown");
+    QTest::newRow("synced") << QByteArray("synced");
+    QTest::newRow("unsupported") << QByteArray("unsupported");
+    QTest::newRow("read-only") << QByteArray("read-only");
+    QTest::newRow("no-permission") << QByteArray("no-permission");
+}
+
+void PluginTest::stableRefreshesOnlyOnDemand() {
+    QFETCH(QByteArray, status);
+    control(status);
+    StatusProvider provider(helper_);
+    const QString path = "/tmp/stable";
+    QVERIFY(!provider.status(path).has_value());
+    provider.request(path);
+    QTRY_VERIFY(provider.status(path).has_value());
+    QCOMPARE(logLines().size(), 1);
+
+    QTest::qWait(350);
+    QCOMPARE(logLines().size(), 1);
+
+    QVERIFY(provider.status(path).has_value());
+    provider.request(path);
+    QTRY_COMPARE(logLines().size(), 2);
+    QTest::qWait(150);
+    QCOMPARE(logLines().size(), 2);
+}
+
+void PluginTest::syncingPollsUntilStable() {
+    control("syncing");
+    StatusProvider provider(helper_);
+    const QString path = "/tmp/syncing";
+    provider.status(path);
+    provider.request(path);
+    QTRY_VERIFY(provider.status(path) == SyncStatus::Syncing);
+    QTRY_VERIFY(logLines().size() >= 2);
+
+    control("synced");
+    QTRY_VERIFY(provider.status(path) == SyncStatus::Synced);
+    const int settledRequests = logLines().size();
+    QTest::qWait(350);
+    QCOMPARE(logLines().size(), settledRequests);
+}
+
+void PluginTest::mixedCacheDoesNotPollStable() {
+    StatusProvider provider(helper_);
+    QSignalSpy changed(&provider, &StatusProvider::statusChanged);
+    const QString a = "/tmp/mixed-A";
+    const QString b = "/tmp/mixed-B";
+
+    control("synced");
+    provider.status(b);
+    provider.request(b);
+    QTRY_VERIFY(provider.status(b) == SyncStatus::Synced);
+
+    control("syncing");
+    provider.status(a);
+    provider.request(a);
+    QTRY_VERIFY(provider.status(a) == SyncStatus::Syncing);
+
+    QFile::remove(log_);
+    changed.clear();
+    control("hold:syncing");
+    QTRY_COMPARE(logLines(), QStringList{a});
+    QTest::qWait(300);
+    QCOMPARE(logLines(), QStringList{a});
+
+    QTest::qWait(600);
+    QCOMPARE(changed.count(), 0);
+    QFile release(release_);
+    QVERIFY(release.open(QIODevice::WriteOnly));
+    QTest::qWait(150);
+    const int expiredRequests = logLines().size();
+    QTest::qWait(250);
+    QCOMPARE(logLines().size(), expiredRequests);
+    QCOMPARE(changed.count(), 0);
+    QVERIFY(!provider.status(a).has_value());
+    QVERIFY(!provider.status(b).has_value());
+
+    control("synced");
+    provider.request(b);
+    QTRY_VERIFY(logLines().last() == b);
+}
+
+void PluginTest::notifiesOnlyOnOverlayChange() {
+    SynodriveOverlayPlugin plugin(nullptr, helper_);
+    QSignalSpy changed(&plugin, &KOverlayIconPlugin::overlaysChanged);
+    const QUrl url = QUrl::fromLocalFile("/tmp/notifications");
+
+    control("unknown");
+    plugin.getOverlays(url);
+    QTRY_COMPARE(logLines().size(), 1);
+    QTest::qWait(50);
+    QCOMPARE(changed.count(), 0);
+
+    control("unsupported");
+    plugin.getOverlays(url);
+    QTRY_COMPARE(logLines().size(), 2);
+    QTest::qWait(50);
+    QCOMPARE(changed.count(), 0);
+
+    control("synced");
+    plugin.getOverlays(url);
+    QTRY_COMPARE(changed.count(), 1);
+    QCOMPARE(changed.at(0).at(1).toStringList(), QStringList{"emblem-default"});
+
+    changed.clear();
+    plugin.getOverlays(url);
+    QTRY_COMPARE(logLines().size(), 4);
+    QTest::qWait(50);
+    QCOMPARE(changed.count(), 0);
+
+    control("read-only");
+    plugin.getOverlays(url);
+    QTRY_COMPARE(changed.count(), 1);
+    QCOMPARE(changed.at(0).at(1).toStringList(), QStringList{"emblem-readonly"});
 }
 
 void PluginTest::returnsBeforeHeldResponse() {
@@ -233,24 +366,32 @@ void PluginTest::preservesDistinctQueuedPaths() {
 }
 
 void PluginTest::failsEveryQueuedPath() {
-    control("hold:error");
+    control("synced");
     SynodriveOverlayPlugin plugin(nullptr, helper_);
     QSignalSpy changed(&plugin, &KOverlayIconPlugin::overlaysChanged);
     const QUrl a = QUrl::fromLocalFile("/tmp/fail-A");
     const QUrl b = QUrl::fromLocalFile("/tmp/fail-B");
     plugin.getOverlays(a);
     plugin.getOverlays(b);
-    QTRY_COMPARE(logLines(), QStringList{"/tmp/fail-A"});
+    QTRY_VERIFY(hasUrlOverlay(changed, a, QStringList{"emblem-default"}));
+    QTRY_VERIFY(hasUrlOverlay(changed, b, QStringList{"emblem-default"}));
+
+    const int baseline = logLines().size();
+    changed.clear();
+    control("hold:error");
+    plugin.getOverlays(a);
+    plugin.getOverlays(b);
+    QTRY_COMPARE(logLines().size(), baseline + 1);
     QFile release(release_);
     QVERIFY(release.open(QIODevice::WriteOnly));
     QTRY_VERIFY(hasUrlOverlay(changed, a, QStringList{}));
     QTRY_VERIFY(hasUrlOverlay(changed, b, QStringList{}));
-    QCOMPARE(logLines(), QStringList{"/tmp/fail-A"});
+    QCOMPARE(logLines().size(), baseline + 1);
 
     control("synced");
     plugin.getOverlays(a);
     plugin.getOverlays(b);
-    QTRY_VERIFY(logLines().size() >= 3);
+    QTRY_VERIFY(logLines().size() >= baseline + 3);
     QTRY_VERIFY(hasUrlOverlay(changed, a, QStringList{"emblem-default"}));
     QTRY_VERIFY(hasUrlOverlay(changed, b, QStringList{"emblem-default"}));
 }
@@ -262,10 +403,13 @@ void PluginTest::refreshesAndRecovers() {
     const QUrl url = QUrl::fromLocalFile("/tmp/dynamic");
     QCOMPARE(plugin.getOverlays(url), QStringList{});
     QTRY_VERIFY(hasOverlay(changed, QStringList{"emblem-default"}));
+    const int beforeConfirmation = logLines().size();
     QCOMPARE(plugin.getOverlays(url), QStringList{"emblem-default"});
+    QTRY_COMPARE(logLines().size(), beforeConfirmation + 1);
 
     changed.clear();
     control("oversized");
+    plugin.getOverlays(url);
     QTRY_VERIFY(hasOverlay(changed, QStringList{}));
 
     changed.clear();
@@ -274,30 +418,18 @@ void PluginTest::refreshesAndRecovers() {
     QTRY_VERIFY(hasOverlay(changed, QStringList{"emblem-default"}));
 
     changed.clear();
-    control("syncing");
-    QElapsedTimer refreshDeadline;
-    refreshDeadline.start();
-    QTRY_VERIFY(hasOverlay(changed, QStringList{"emblem-synchronizing"}));
-    QVERIFY(refreshDeadline.elapsed() < 250);
+    control("malformed");
+    plugin.getOverlays(url);
+    QTRY_VERIFY(hasOverlay(changed, QStringList{}));
 
     changed.clear();
-    bool queuedDuringReset = false;
-    const QMetaObject::Connection reentrant = connect(
-        &plugin, &KOverlayIconPlugin::overlaysChanged, &plugin,
-        [&](const QUrl& changedUrl, const QStringList& overlay) {
-            if (!queuedDuringReset && changedUrl == url && overlay.isEmpty()) {
-                queuedDuringReset = true;
-                control("synced");
-                QCOMPARE(plugin.getOverlays(url), QStringList{});
-            }
-        }, Qt::DirectConnection);
-    control("malformed");
-    QTRY_VERIFY(queuedDuringReset);
-    QTRY_VERIFY(hasUrlOverlay(changed, url, QStringList{"emblem-default"}));
-    disconnect(reentrant);
+    control("synced");
+    QCOMPARE(plugin.getOverlays(url), QStringList{});
+    QTRY_VERIFY(hasOverlay(changed, QStringList{"emblem-default"}));
 
     changed.clear();
     control("exit");
+    plugin.getOverlays(url);
     QTRY_VERIFY(hasOverlay(changed, QStringList{}));
 
     changed.clear();
@@ -310,29 +442,31 @@ void PluginTest::helperUnavailable() {
     SynodriveOverlayPlugin plugin(nullptr, "/definitely/missing/synodrive-status");
     QSignalSpy changed(&plugin, &KOverlayIconPlugin::overlaysChanged);
     QCOMPARE(plugin.getOverlays(QUrl::fromLocalFile("/tmp/unavailable")), QStringList{});
-    QTRY_VERIFY(hasOverlay(changed, QStringList{}));
+    QTest::qWait(100);
+    QCOMPARE(changed.count(), 0);
+}
+
+void PluginTest::prunesInactiveCache_data() {
+    QTest::addColumn<QByteArray>("status");
+    QTest::newRow("synced") << QByteArray("synced");
+    QTest::newRow("unknown") << QByteArray("unknown");
+    QTest::newRow("unsupported") << QByteArray("unsupported");
 }
 
 void PluginTest::prunesInactiveCache() {
-    control("synced");
-    SynodriveOverlayPlugin plugin(nullptr, helper_);
-    QSignalSpy changed(&plugin, &KOverlayIconPlugin::overlaysChanged);
-    const QUrl url = QUrl::fromLocalFile("/tmp/pruned");
-    plugin.getOverlays(url);
-    QTRY_VERIFY(!changed.isEmpty());
+    QFETCH(QByteArray, status);
+    control(status);
+    StatusProvider provider(helper_);
+    QSignalSpy changed(&provider, &StatusProvider::statusChanged);
+    const QString path = "/tmp/pruned";
+    provider.status(path);
+    provider.request(path);
+    QTRY_VERIFY(provider.status(path).has_value());
     changed.clear();
-    QElapsedTimer deadline;
-    deadline.start();
-    bool pruned = false;
-    while (deadline.elapsed() < 2000 && !pruned) {
-        for (const QList<QVariant>& signal : changed) {
-            pruned = signal.at(1).toStringList().isEmpty();
-        }
-        changed.clear();
-        QTest::qWait(25);
-    }
-    QVERIFY(pruned);
-    QCOMPARE(plugin.getOverlays(url), QStringList{});
+    QTest::qWait(900);
+    QCOMPARE(changed.count(), 0);
+    QCOMPARE(logLines().size(), 1);
+    QVERIFY(!provider.status(path).has_value());
 }
 
 void PluginTest::destructionDoesNotWait() {

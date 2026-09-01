@@ -18,6 +18,18 @@ Carried decisions: use the installed `plugin-cb-4.so`; expose a version-gated `s
 
 Current user decision: on 2026-09-01, the user stated that the accepted plan supersedes `docs/engineering-task.md`. This resolves the old document's no-plugin scope limit. The plugin composes with the CLI after the live transition gate.
 
+### SDD-011 supersession
+
+Record: `.agent/plan-history/plan-summary.20260901T141135241158Z.eeb9fa667ce56a9825769936caa61679ed330bf28b9dd59527512d9374a53243.md`
+
+Status: superseded
+
+Scope: The behavior paragraph that refreshes every recent path once per second and emits a notification during expiry.
+
+Reason: Measurements showed that unchanged refreshes create a permanent query loop and measurable idle CPU use.
+
+Replacement: `docs/plans/SDD-011-idle-performance.md` defines demand-only stable refresh, syncing-only timer queries, silent expiry, and mapped-overlay notification equality.
+
 ## Supported model
 
 The supported system is one local Linux desktop user with Synology Drive `8.0.2-17889`, icon-overlay ABI directory `15`, installed `libnautilus-extension4`, an active Synology daemon, Dolphin/KF6, and normal local file paths representable as UTF-8 without a NUL byte. One Dolphin plugin instance owns one persistent `synodrive-status --stdio` process. Development acceptance can load an exact extracted distro copy through `LD_LIBRARY_PATH` when system installation needs unavailable administrator authentication; the installed product does not contain or bypass that runtime dependency.

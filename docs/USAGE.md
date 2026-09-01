@@ -8,7 +8,9 @@ The Synology Drive Dolphin Extension (Unofficial) operates automatically after i
 2. Open a configured Synology Drive folder in Dolphin.
 3. Wait for Dolphin to request the file status.
 
-A new or changed status usually appears within two seconds for a visible file. The extension removes entries that Dolphin does not request for 30 seconds.
+A stable path has no background status query. A file-system event or a later Dolphin overlay request checks the status again.
+
+If a recent path is syncing, the extension checks it once per second. The checks stop when the path becomes stable. They also stop after 30 seconds without a Dolphin request.
 
 The plugin does not add overlays to remote URLs. Unknown and unsupported files have no overlay.
 
@@ -86,6 +88,8 @@ The diagnostic on stderr identifies metadata, ABI, library, symbol, or helper er
 ### An overlay is temporarily absent
 
 The plugin returns immediately while it requests a missing or expired status. The overlay appears after the helper returns a valid result.
+
+A stable overlay can remain unchanged until Dolphin requests that path again. A local file-system event usually causes this request.
 
 If the helper fails, the plugin clears affected overlays. A later local request starts a new helper process.
 

@@ -5,8 +5,10 @@
 SynodriveOverlayPlugin::SynodriveOverlayPlugin(QObject* parent, QString helper)
     : KOverlayIconPlugin(parent), provider_(std::move(helper), this) {
     connect(&provider_, &StatusProvider::statusChanged, this,
-            [this](const QString& path, SyncStatus status) {
-                emit overlaysChanged(QUrl::fromLocalFile(path), overlays(status));
+            [this](const QString& path, SyncStatus previous, SyncStatus current) {
+                if (overlays(previous) != overlays(current)) {
+                    emit overlaysChanged(QUrl::fromLocalFile(path), overlays(current));
+                }
             });
 }
 QStringList SynodriveOverlayPlugin::getOverlays(const QUrl& url) {
@@ -15,11 +17,8 @@ QStringList SynodriveOverlayPlugin::getOverlays(const QUrl& url) {
     }
     const QString path = url.toLocalFile();
     const auto status = provider_.status(path);
-    if (!status) {
-        provider_.request(path);
-        return {};
-    }
-    return overlays(*status);
+    provider_.request(path);
+    return status ? overlays(*status) : QStringList{};
 }
 
 QStringList SynodriveOverlayPlugin::overlays(SyncStatus status) {

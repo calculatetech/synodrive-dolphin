@@ -5,6 +5,8 @@
 #include <QStandardPaths>
 #include <QStringList>
 
+#include <algorithm>
+
 namespace {
 #ifdef SYNODRIVE_PROVIDER_TESTING
 constexpr qint64 kRefreshMilliseconds = 100;
@@ -29,7 +31,6 @@ StatusProvider::StatusProvider(QString program, QObject* parent)
     connect(process_, qOverload<int, QProcess::ExitStatus>(&QProcess::finished),
             this, [this] { processFinished(); });
     connect(&timer_, &QTimer::timeout, this, &StatusProvider::refresh);
-    timer_.start(kRefreshMilliseconds);
 }
 
 StatusProvider::~StatusProvider() {
@@ -118,11 +119,22 @@ void StatusProvider::readResponse() {
     }
 
     const QString completed = active_;
-    cache_.insert(completed, {*parsed});
+    const bool stillRequested = accesses_.contains(completed);
+    SyncStatus previous = SyncStatus::Unknown;
+    const auto cached = cache_.constFind(completed);
+    if (cached != cache_.cend()) {
+        previous = cached->status;
+    }
     active_.clear();
     requestWritten_ = false;
     response_.clear();
-    emit statusChanged(completed, *parsed);
+    if (stillRequested) {
+        cache_.insert(completed, {*parsed});
+        if (previous != *parsed) {
+            emit statusChanged(completed, previous, *parsed);
+        }
+    }
+    scheduleRefresh();
     pump();
 }
 
@@ -159,10 +171,18 @@ void StatusProvider::failAll() {
     }
 
     for (const QString& path : failed) {
+        SyncStatus previous = SyncStatus::Unknown;
+        const auto cached = cache_.constFind(path);
+        if (cached != cache_.cend()) {
+            previous = cached->status;
+        }
         cache_.remove(path);
         accesses_.remove(path);
-        emit statusChanged(path, SyncStatus::Unknown);
+        if (previous != SyncStatus::Unknown) {
+            emit statusChanged(path, previous, SyncStatus::Unknown);
+        }
     }
+    scheduleRefresh();
 
     if (stopProcess) {
         process_->kill();
@@ -171,17 +191,40 @@ void StatusProvider::failAll() {
 
 void StatusProvider::refresh() {
     const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    QStringList syncing;
     for (auto entry = cache_.begin(); entry != cache_.end();) {
         const QString path = entry.key();
         if (now - accesses_.value(path, 0) >= kRecentMilliseconds) {
             entry = cache_.erase(entry);
             accesses_.remove(path);
-            emit statusChanged(path, SyncStatus::Unknown);
         } else {
+            if (entry->status == SyncStatus::Syncing) {
+                syncing.append(path);
+            }
             ++entry;
-            request(path);
         }
     }
+    for (const QString& path : syncing) {
+        request(path);
+    }
+    scheduleRefresh();
+}
+
+void StatusProvider::scheduleRefresh() {
+    if (cache_.isEmpty()) {
+        timer_.stop();
+        return;
+    }
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    qint64 delay = kRecentMilliseconds;
+    for (auto entry = cache_.cbegin(); entry != cache_.cend(); ++entry) {
+        const qint64 remaining = kRecentMilliseconds - (now - accesses_.value(entry.key(), 0));
+        delay = std::min(delay, std::max<qint64>(1, remaining));
+        if (entry->status == SyncStatus::Syncing) {
+            delay = std::min(delay, kRefreshMilliseconds);
+        }
+    }
+    timer_.start(static_cast<int>(delay));
 }
 
 std::optional<SyncStatus> StatusProvider::parseStatus(const QByteArray& value) {

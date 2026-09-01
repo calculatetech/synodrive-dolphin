@@ -44,6 +44,12 @@ No task is active.
 
 ## Planned later
 
+- **SDD-012 — Prove a persistent GLib-aware status worker.**
+  - Load the Synology status libraries once in a separate process.
+  - Dispatch the required GLib main context without blocking Dolphin.
+  - Prove live status transitions, repeated queries, and process recovery.
+  - Adopt the worker only when it stays current and reduces active-sync CPU use.
+
 - **SDD-008 — Ship safe context-menu actions.**
   - Start this task only if SDD-007 succeeds.
   - Add a native KF6 `KAbstractFileItemActionPlugin` in the `kf6/kfileitemaction` namespace.
@@ -108,6 +114,12 @@ Use `synodrive-status <absolute-path>` for command-line troubleshooting.
   - Accept internal major 4, which corresponds to public Synology Drive 8.x.
   - Continue to require icon-overlay ABI 15, the expected library, symbols, structure, and status range.
   - Fail closed for malformed metadata, other majors, ABI changes, missing symbols, and unknown statuses.
+
+- **SDD-011 — Eliminate idle overlay polling for v0.2.0.**
+  - Query stable paths only when Dolphin requests their overlays.
+  - Poll recent syncing paths once per second until they become stable or inactive.
+  - Emit overlay notifications only when the visible overlay changes.
+  - Preserve the isolated fresh-child status query.
 
 Production readiness is complete when SDD-002 through SDD-005, SDD-007, and SDD-009 are complete.
 

@@ -41,6 +41,8 @@ Read [Usage](docs/USAGE.md) for Dolphin operation, command-line use, status name
 
 Read the [technical report](docs/SYNODRIVE_DOLPHIN_RECON.md) for the private interface, process isolation, validation evidence, and compatibility risks.
 
+Read the [release notes](docs/RELEASE_NOTES.md) for changes in each published version.
+
 Read the [production-readiness roadmap](docs/roadmap.md) for accepted packaging, compatibility, CI, and context-menu work.
 
 ## Development

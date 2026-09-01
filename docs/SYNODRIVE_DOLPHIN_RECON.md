@@ -96,7 +96,13 @@ Dolphin KOverlayIconPlugin
     -> installed plugin-cb-4.so
 ```
 
-`getOverlays` must return immediately. A cache miss queues the path and returns no overlay. A later response updates the cache and emits `overlaysChanged`. This keeps the private Synology code and its threads out of Dolphin.
+`getOverlays` must return immediately. It returns a cached overlay and queues one deduplicated status request. A cache miss returns no overlay. A later visible change updates the cache and emits `overlaysChanged`. This keeps the private Synology code and its threads out of Dolphin.
+
+Stable cached paths have no timer query. Recent syncing paths poll once per second until they become stable or inactive. The plugin emits `overlaysChanged` only when the mapped overlay changes.
+
+One hundred warm stream queries used approximately 0.48 seconds of CPU time, or 4.8 milliseconds per query. The persistent wrapper used no measurable CPU during a five-second idle sample. Removing stable timer queries therefore removes the material idle cost without changing private-library loading.
+
+The v0.2.0 candidate opened a real synchronized directory in Dolphin. Its 243 initial query children started within 1.994 seconds. No query child started during the remaining 48 seconds of the trace. A separate 20-second sample reported 0.00% Dolphin CPU after a five-second settle.
 
 ## 9. Fragility assessment
 
@@ -124,7 +130,7 @@ The live check on 2026-09-01 produced these results:
 
 The runtime trace found two read-only main-database opens, two read/write SQLite WAL/SHM coordination opens, no Synology-path rename, unlink, truncate, or positional-write operation, and no Internet-family endpoint.
 
-The KF6 plugin is complete. Its test loads the built module through `QPluginLoader`. A composed check calls `getOverlays` through the reviewed CLI and its private-library fixture. It proves that one wrapper uses different query-child PIDs. The suite also proves nonblocking cache misses, all six mappings, UTF-8 framing, and active and queued deduplication. It proves a terminal result for each distinct queued URL. The failure checks cover the full queue, oversized responses, and `error` responses. A direct-signal check queues recovery while the old wrapper stops. The suite also proves the scaled refresh deadline, stale-overlay removal, process restart, and inactive-cache pruning. Plugin destruction is nonblocking and removes the wrapper and its active query child. Static inspection shows that the plugin depends only on Qt, KF6 KIO, and standard runtime libraries. It has no private helper symbols or dynamic-loader calls. All four selected emblem names exist in the installed icon themes.
+The KF6 plugin is complete. Its test loads the built module through `QPluginLoader`. A composed check calls `getOverlays` through the reviewed CLI and its private-library fixture. It proves that one wrapper uses different query-child PIDs. The suite also proves nonblocking cache misses, all six mappings, UTF-8 framing, and active and queued deduplication. It proves a terminal result for each distinct queued URL. The failure checks cover the full queue, oversized responses, `error` responses, and wrapper exit. The suite proves zero stable timer queries, syncing-only polling, mixed-cache isolation, mapped-overlay notification equality, process restart, and silent inactive-cache pruning. Plugin destruction is nonblocking and removes the wrapper and its active query child. Static inspection shows that the plugin depends only on Qt, KF6 KIO, and standard runtime libraries. It has no private helper symbols or dynamic-loader calls. All four selected emblem names exist in the installed icon themes.
 
 The temporary install manifest contains only:
 

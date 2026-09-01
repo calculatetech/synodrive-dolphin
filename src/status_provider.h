@@ -30,7 +30,7 @@ public:
     void request(const QString& path);
 
 signals:
-    void statusChanged(const QString& path, SyncStatus status);
+    void statusChanged(const QString& path, SyncStatus previous, SyncStatus current);
 
 private:
     struct Entry {
@@ -43,6 +43,7 @@ private:
     void processFinished();
     void failAll();
     void refresh();
+    void scheduleRefresh();
     static std::optional<SyncStatus> parseStatus(const QByteArray& value);
 
     QString program_;
