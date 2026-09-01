@@ -117,4 +117,39 @@ The live check on 2026-09-01 produced these results:
 - Unique file: `synodrive-overlay-test-1788240371250812885`
 - Cleanup: file absent
 
-The runtime trace found two read-only main-database opens, two read/write SQLite WAL/SHM coordination opens, no Synology-path rename, unlink, truncate, or positional-write operation, and no Internet-family endpoint. A temporary install manifest contained only `/usr/bin/synodrive-status`. The remaining work is the asynchronous KF6 provider, its lifecycle tests, artifact inspection, and final process-boundary validation.
+The runtime trace found two read-only main-database opens, two read/write SQLite WAL/SHM coordination opens, no Synology-path rename, unlink, truncate, or positional-write operation, and no Internet-family endpoint.
+
+The KF6 plugin is complete. Its test loads the built module through `QPluginLoader`. A composed check calls `getOverlays` through the reviewed CLI and its private-library fixture. It proves that one wrapper uses different query-child PIDs. The suite also proves nonblocking cache misses, all six mappings, UTF-8 framing, and active and queued deduplication. It proves a terminal result for each distinct queued URL. The failure checks cover the full queue, oversized responses, and `error` responses. A direct-signal check queues recovery while the old wrapper stops. The suite also proves the scaled refresh deadline, stale-overlay removal, process restart, and inactive-cache pruning. Plugin destruction is nonblocking and removes the wrapper and its active query child. Static inspection shows that the plugin depends only on Qt, KF6 KIO, and standard runtime libraries. It has no private helper symbols or dynamic-loader calls. All four selected emblem names exist in the installed icon themes.
+
+The temporary install manifest contains only:
+
+```text
+/usr/bin/synodrive-status
+/usr/lib/x86_64-linux-gnu/qt6/plugins/kf6/overlayicon/synodrive-overlay.so
+```
+
+Neither file contains a Synology binary.
+
+### Build and install
+
+Install the development and runtime dependencies. This does not require the Nautilus application:
+
+```bash
+sudo apt install cmake ninja-build g++ qt6-base-dev libkf6kio-dev libnautilus-extension4
+```
+
+Build and test:
+
+```bash
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
+cmake --build build
+ctest --test-dir build --output-on-failure
+```
+
+Install for the system:
+
+```bash
+sudo cmake --install build --prefix /usr
+```
+
+Restart Dolphin after installation. Do not copy any Synology library into the install tree. The helper loads the user's installed Synology copy at run time.

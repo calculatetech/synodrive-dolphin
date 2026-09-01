@@ -69,7 +69,12 @@ From the repository root:
     cmake --build build
     ctest --test-dir build --output-on-failure
 
-The CLI test scripts and live acceptance commands will be documented after their filenames exist. Install testing uses a temporary `DESTDIR`; it never copies files into Synology directories.
+Install `qt6-base-dev`, `libkf6kio-dev`, and `libnautilus-extension4` first. Nautilus is not required. On the development host, administrator authentication was unavailable. The build therefore used the exact extracted `libkf6kio-dev` header with these two extra configure values:
+
+    -DKF6_KIO_INCLUDE_DIR="$PWD/build/kf6-dev/root/usr/include/KF6/KIOCore"
+    -DKF6_KIOCORE_LIBRARY=/usr/lib/x86_64-linux-gnu/libKF6KIOCore.so.6
+
+The production code has no dependency bypass. Install testing uses a temporary `DESTDIR`; it never copies files into Synology directories.
 
 ## Research record
 

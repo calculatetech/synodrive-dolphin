@@ -1,7 +1,10 @@
+#include <chrono>
 #include <cstdlib>
+#include <filesystem>
 #include <fstream>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <unistd.h>
 
 struct _tag_ICONOVERLAY_INFO {
@@ -12,6 +15,12 @@ struct _tag_ICONOVERLAY_INFO {
 void PrepareCacheTable() {
     if (const char* fail = std::getenv("FAKE_SYNODRIVE_PREPARE_FAIL"); fail && *fail) {
         throw std::runtime_error("fixture daemon unavailable");
+    }
+    if (const char* hold = std::getenv("FAKE_SYNODRIVE_HOLD"); hold && *hold) {
+        const char* release = std::getenv("FAKE_SYNODRIVE_RELEASE");
+        while (release && !std::filesystem::exists(release)) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
     }
 }
 

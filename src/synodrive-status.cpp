@@ -1,6 +1,7 @@
 #include <dlfcn.h>
 #include <poll.h>
 #include <signal.h>
+#include <sys/prctl.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -9,6 +10,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <optional>
 #include <stdexcept>
@@ -153,8 +155,12 @@ std::string isolatedQuery(const std::string& path) {
         return "error";
     }
 
+    const pid_t parent = getpid();
     const pid_t child = fork();
     if (child == 0) {
+        if (prctl(PR_SET_PDEATHSIG, SIGKILL) != 0 || getppid() != parent) {
+            _exit(1);
+        }
         close(pipefd[0]);
         std::string result = "error";
         try {
@@ -204,6 +210,11 @@ std::string isolatedQuery(const std::string& path) {
 }
 
 int streamMode() {
+#ifdef SYNODRIVE_STATUS_TESTING
+    if (const std::string log = environment("SYNODRIVE_STATUS_TEST_WRAPPER_PID_LOG"); !log.empty()) {
+        std::ofstream(log, std::ios::app) << getpid() << '\n';
+    }
+#endif
     std::string frame;
     bool oversized = false;
     char byte = 0;
