@@ -91,6 +91,9 @@ std::string query(const std::string& path) {
     if (!fs::path(path).is_absolute()) {
         throw std::runtime_error("path must be absolute");
     }
+    std::string queryPath = path;
+    while (queryPath.compare(0, 4, "/../") == 0) queryPath.erase(0, 3);
+    if (queryPath == "/..") queryPath = "/";
     if (!synodrive::supportedInstalledVersion(clientInfoPath())) {
         throw std::runtime_error("unsupported or malformed Synology Drive metadata (expected internal major 4)");
     }
@@ -113,7 +116,7 @@ std::string query(const std::string& path) {
     IconOverlayInfo info{0, 0};
     try {
         prepare();
-        if (getInfo(path.c_str(), info) != 0) {
+        if (getInfo(queryPath.c_str(), info) != 0) {
             throw std::runtime_error("Synology status query failed");
         }
     } catch (...) {

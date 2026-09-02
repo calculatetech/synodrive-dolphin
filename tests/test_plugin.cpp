@@ -43,6 +43,8 @@ private slots:
     void nonLocalDoesNothing();
     void loadsModule();
     void composesReviewedCli();
+    void normalizesLeadingLocalPath_data();
+    void normalizesLeadingLocalPath();
     void mappings_data();
     void mappings();
     void stableRefreshesOnlyOnDemand_data();
@@ -128,6 +130,7 @@ void PluginTest::cleanup() {
     QFile::remove(wrapperPid_);
     QFile::remove(queryPids_);
     qunsetenv("FAKE_SYNODRIVE_HOLD");
+    qunsetenv("FAKE_SYNODRIVE_EXPECT_PATH");
 }
 
 void PluginTest::control(const QByteArray& value) {
@@ -183,6 +186,29 @@ void PluginTest::composesReviewedCli() {
     const QStringList pids = QString::fromUtf8(queries.readAll()).split('\n', Qt::SkipEmptyParts);
     QVERIFY(pids.size() >= 2);
     QVERIFY(pids.at(0) != pids.at(1));
+}
+
+void PluginTest::normalizesLeadingLocalPath_data() {
+    QTest::addColumn<QString>("input");
+    QTest::addColumn<QString>("query");
+    QTest::newRow("places") << QString("/../storage/RBS Drive/item")
+                             << QString("/storage/RBS Drive/item");
+    QTest::newRow("internal-parent") << QString("/storage/link/../item")
+                                     << QString("/storage/link/../item");
+}
+
+void PluginTest::normalizesLeadingLocalPath() {
+    QFETCH(QString, input);
+    QFETCH(QString, query);
+    control("1");
+    qputenv("FAKE_SYNODRIVE_EXPECT_PATH", query.toLocal8Bit());
+    SynodriveOverlayPlugin plugin(nullptr, cli_);
+    QSignalSpy changed(&plugin, &KOverlayIconPlugin::overlaysChanged);
+    const QUrl url = QUrl::fromLocalFile(input);
+
+    plugin.getOverlays(url);
+
+    QTRY_VERIFY(hasUrlOverlay(changed, url, QStringList{"emblem-default"}));
 }
 
 void PluginTest::mappings_data() {

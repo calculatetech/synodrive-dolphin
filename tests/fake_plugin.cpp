@@ -24,12 +24,16 @@ void PrepareCacheTable() {
     }
 }
 
-int GetIconOverlayInfoByPath(const char*, _tag_ICONOVERLAY_INFO& info) {
+int GetIconOverlayInfoByPath(const char* path, _tag_ICONOVERLAY_INFO& info) {
     if (const char* log = std::getenv("FAKE_SYNODRIVE_PID_LOG"); log && *log) {
         std::ofstream(log, std::ios::app) << getpid() << '\n';
     }
     const char* control = std::getenv("FAKE_SYNODRIVE_CONTROL");
     if (!control) {
+        return 1;
+    }
+    if (const char* expected = std::getenv("FAKE_SYNODRIVE_EXPECT_PATH");
+        expected && path != std::string(expected)) {
         return 1;
     }
     std::ifstream input(control);

@@ -82,6 +82,11 @@ Use `synodrive-status <absolute-path>` for command-line troubleshooting.
 
 ## Completed
 
+- **SDD-014 — Normalize local Places paths for overlays.**
+  - Removed leading `/..` segments only from the path sent to Synology Drive.
+  - Kept Dolphin cache keys and change notifications on the original URL.
+  - Covered immediate Places notifications and internal parent segments with a regression test.
+
 - **SDD-008 — Ship safe context-menu actions.**
   - Added a native KF6 `KAbstractFileItemActionPlugin` in the `kf6/kfileitemaction` namespace.
   - Added “Get link” and “Browse previous versions” for one eligible local file or directory.
