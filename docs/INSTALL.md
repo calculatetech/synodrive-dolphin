@@ -66,7 +66,7 @@ The command writes these files:
 - `build/packages/ubuntu-26.04/synodrive-dolphin_0.3.0-1_amd64.deb`
 - `build/packages/fedora-44/synodrive-dolphin-0.3.0-1.x86_64.rpm`
 
-The command verifies package identity, payload, dependencies, and architecture. It does not install either package. SDD-005 must validate installation and removal before publication.
+The command verifies package identity, payload, dependencies, and architecture. It also installs, verifies, and removes each package in a disposable container.
 
 For a native package build, install `dpkg-dev` and `file` for DEB output. Install `rpm-build` for RPM output. Then configure and build the source before you run one generator:
 
@@ -77,7 +77,23 @@ cpack --config build/CPackConfig.cmake -G RPM -B build/packages/host
 
 Run only the generator that matches the package tools on the current system.
 
-## Install
+## Install a package candidate
+
+On Ubuntu 26.04, install the DEB:
+
+```bash
+sudo apt install ./build/packages/ubuntu-26.04/synodrive-dolphin_0.3.0-1_amd64.deb
+```
+
+On Fedora 44, install the RPM:
+
+```bash
+sudo dnf install ./build/packages/fedora-44/synodrive-dolphin-0.3.0-1.x86_64.rpm
+```
+
+Restart Dolphin after installation.
+
+## Install from source
 
 Install the command and the Dolphin plugin under `/usr`:
 
@@ -128,7 +144,7 @@ Make sure that the installed module exists:
 test -f "$(qtpaths6 --plugin-dir)/kf6/overlayicon/synodrive-overlay.so"
 ```
 
-## Upgrade
+## Upgrade a source installation
 
 Get the new source, rebuild it, and install it over the current files:
 
@@ -149,7 +165,25 @@ sed -n '/^\[Version\]$/,/^\[/p' /opt/Synology/SynologyDrive/INFO
 
 Internal major 4 remains supported when the private ABI checks pass. Other majors and malformed metadata fail closed.
 
-## Remove
+## Remove a package installation
+
+On Ubuntu, remove the DEB installation:
+
+```bash
+sudo apt remove synodrive-dolphin
+```
+
+On Fedora, remove the RPM installation:
+
+```bash
+sudo dnf remove synodrive-dolphin
+```
+
+Then restart Dolphin. Removal does not change Synology Drive files, settings, or synchronization data.
+
+Package upgrade instructions will be added after the first package release exists.
+
+## Remove a source installation
 
 Remove the three installed files:
 
@@ -159,4 +193,4 @@ sudo rm "$(qtpaths6 --plugin-dir)/kf6/overlayicon/synodrive-overlay.so"
 sudo rm /usr/share/doc/synodrive-dolphin/copyright
 ```
 
-Then restart Dolphin. Removal does not change Synology Drive files, settings, or synchronization data.
+Then restart Dolphin. Source removal does not change Synology Drive files, settings, or synchronization data.

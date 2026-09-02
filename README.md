@@ -63,7 +63,7 @@ Build and inspect both official package candidates:
 ./ci/package
 ```
 
-This command writes one DEB and one RPM below `build/packages`. SDD-005 must validate installation and removal before publication.
+This command writes one DEB and one RPM below `build/packages`. It installs, verifies, and removes each package in a disposable container.
 
 For a fast build on the current host, run:
 

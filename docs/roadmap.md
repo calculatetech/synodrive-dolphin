@@ -23,12 +23,6 @@ No task is active.
 
 ## Planned next
 
-- **SDD-005 — Test the package lifecycle.**
-  - Install and remove each package in disposable Ubuntu and Fedora containers.
-  - Validate the executable, plugin, license, metadata, permissions, and shared-library resolution.
-  - Make sure that package removal leaves no owned files.
-  - Add an upgrade test after the first packaged release exists.
-
 - **SDD-007 — Prove context-menu integration.**
   - Build a bounded prototype against the installed private helper.
   - List and invoke “Get link” and “Browse previous versions” from a separate process.
@@ -94,6 +88,12 @@ The project does not plan these items for v1.0:
 Use `synodrive-status <absolute-path>` for command-line troubleshooting.
 
 ## Completed
+
+- **SDD-005 — Test the package lifecycle.**
+  - Install and remove each package in disposable Ubuntu and Fedora containers.
+  - Validate the executable, plugin, license, metadata, permissions, and shared-library resolution.
+  - Make sure that package removal leaves no owned files.
+  - Add an upgrade test after the first packaged release exists.
 
 - **SDD-004 — Produce DEB and RPM packages.**
   - Use the CPack DEB and RPM generators.

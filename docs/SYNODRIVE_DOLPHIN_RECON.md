@@ -144,6 +144,8 @@ No file contains a Synology binary.
 
 The v0.3.0 package candidates use CPack. The Ubuntu 26.04 DEB and Fedora 44 RPM contain the same three regular files. Native scanners generate linked-library dependencies. Explicit metadata adds Dolphin and the Nautilus extension runtime. Neither package requires or contains Synology software.
 
+The package command also validates each candidate in a clean target container. It uses the native package manager to install, query, verify, and remove the package. The check runs both installed binaries through the dynamic loader. It also confirms the exact file set, metadata, ownership, permissions, command result, license bytes, and complete removal.
+
 ### Build and install
 
 Install the development and runtime dependencies. This does not require the Nautilus application:

@@ -16,7 +16,7 @@ run_leg() {
     version=$4
 
     printf '%s\n' "==> $label"
-    docker build --file "$repo_root/ci/$dockerfile" --tag "$image" "$repo_root/ci"
+    docker build --file "$repo_root/ci/$dockerfile" --target build --tag "$image" "$repo_root/ci"
     docker run --rm --init --network none \
         --mount "type=bind,source=$repo_root,target=/src,readonly" \
         --workdir /src \

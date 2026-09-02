@@ -1,0 +1,190 @@
+#!/bin/sh
+set -eu
+
+usage() {
+    printf '%s\n' 'usage: validate-package-lifecycle DEB|RPM ARTIFACT' >&2
+    exit 2
+}
+
+[ "$#" -eq 2 ] || usage
+[ "${SYNODRIVE_PACKAGE_CONTAINER-}" = 1 ] || {
+    printf '%s\n' 'error: package lifecycle validation requires a disposable container' >&2
+    exit 1
+}
+
+format=$1
+artifact=$2
+test_root=${SYNODRIVE_LIFECYCLE_TEST_ROOT-}
+script_dir=${0%/*}
+repo_root=$(CDPATH= cd -- "$script_dir/.." && pwd)
+package=synodrive-dolphin
+command_path=/usr/bin/synodrive-status
+copyright_path=/usr/share/doc/synodrive-dolphin/copyright
+doc_path=/usr/share/doc/synodrive-dolphin
+
+case $format in
+    DEB)
+        plugin_path=/usr/lib/x86_64-linux-gnu/qt6/plugins/kf6/overlayicon/synodrive-overlay.so
+        command_mode=755
+        plugin_mode=644
+        copyright_mode=644
+        ;;
+    RPM)
+        plugin_path=/usr/lib64/qt6/plugins/kf6/overlayicon/synodrive-overlay.so
+        command_mode=755
+        plugin_mode=755
+        copyright_mode=644
+        ;;
+    *) usage ;;
+esac
+
+rooted() {
+    printf '%s%s\n' "$test_root" "$1"
+}
+
+assert_absent() {
+    path=$(rooted "$1")
+    [ ! -e "$path" ] && [ ! -L "$path" ]
+}
+
+query_deb() {
+    dpkg-query -W -f="$1" "$package"
+}
+
+query_rpm() {
+    rpm -q --qf "$1" "$package"
+}
+
+assert_absent "$command_path"
+assert_absent "$plugin_path"
+assert_absent "$copyright_path"
+assert_absent "$doc_path"
+assert_absent /opt/Synology/SynologyDrive
+
+case $format in
+    DEB)
+        if dpkg-query -W "$package" >/dev/null 2>&1; then
+            printf '%s\n' 'error: DEB package is already installed' >&2
+            exit 1
+        fi
+        dpkg --install "$artifact"
+        [ "$(query_deb '${binary:Package}')" = "$package" ]
+        [ "$(query_deb '${Version}')" = 0.3.0-1 ]
+        [ "$(query_deb '${Architecture}')" = amd64 ]
+        [ "$(query_deb '${Maintainer}')" = 'Michael Beutler <mikebeutler84@gmail.com>' ]
+        [ "$(query_deb '${Homepage}')" = https://github.com/calculatetech/synodrive-dolphin ]
+        [ "$(query_deb '${Section}')" = utils ]
+        [ "$(query_deb '${Priority}')" = optional ]
+        [ "$(query_deb '${binary:Summary}')" = 'Synology Drive Dolphin Extension (Unofficial)' ]
+        owned_paths=$(dpkg-query -L "$package")
+        ;;
+    RPM)
+        if rpm -q "$package" >/dev/null 2>&1; then
+            printf '%s\n' 'error: RPM package is already installed' >&2
+            exit 1
+        fi
+        rpm --install "$artifact"
+        [ "$(query_rpm '%{NAME}')" = "$package" ]
+        [ "$(query_rpm '%{VERSION}')" = 0.3.0 ]
+        [ "$(query_rpm '%{RELEASE}')" = 1 ]
+        [ "$(query_rpm '%{ARCH}')" = x86_64 ]
+        [ "$(query_rpm '%{SUMMARY}')" = 'Synology Drive Dolphin Extension (Unofficial)' ]
+        [ "$(query_rpm '%{LICENSE}')" = MIT ]
+        [ "$(query_rpm '%{URL}')" = https://github.com/calculatetech/synodrive-dolphin ]
+        [ "$(query_rpm '%{VENDOR}')" = calculatetech ]
+        [ "$(query_rpm '%{PACKAGER}')" = 'Michael Beutler <mikebeutler84@gmail.com>' ]
+        owned_paths=$(rpm -ql "$package")
+        ;;
+esac
+
+case $format in
+    DEB) installed_packages=$(dpkg-query -W -f='${binary:Package}\n') ;;
+    RPM) installed_packages=$(rpm -qa) ;;
+esac
+if printf '%s\n' "$installed_packages" | grep -qi synology; then
+    printf '%s\n' 'error: a Synology package is installed in the lifecycle container' >&2
+    exit 1
+fi
+
+owned_files=
+old_ifs=$IFS
+IFS='
+'
+for path in $owned_paths; do
+    [ -n "$path" ] || continue
+    rooted_path=$(rooted "$path")
+    if [ ! -d "$rooted_path" ]; then
+        owned_files=$(printf '%s\n%s\n' "$owned_files" "$path")
+    fi
+done
+IFS=$old_ifs
+owned_files=$(printf '%s\n' "$owned_files" | sed '/^$/d' | sort)
+expected_files=$(printf '%s\n' "$command_path" "$plugin_path" "$copyright_path" | sort)
+[ "$owned_files" = "$expected_files" ]
+
+for path in $command_path $plugin_path $copyright_path; do
+    rooted_path=$(rooted "$path")
+    [ -f "$rooted_path" ]
+    [ ! -L "$rooted_path" ]
+done
+
+file -b "$(rooted "$command_path")" | grep -Fq ELF
+file -b "$(rooted "$plugin_path")" | grep -Fq ELF
+[ "$(sha256sum "$(rooted "$copyright_path")" | awk '{print $1}')" = "$(sha256sum "$repo_root/LICENSE" | awk '{print $1}')" ]
+[ "$(stat -c '%U:%G %a' "$(rooted "$command_path")")" = "root:root $command_mode" ]
+[ "$(stat -c '%U:%G %a' "$(rooted "$plugin_path")")" = "root:root $plugin_mode" ]
+[ "$(stat -c '%U:%G %a' "$(rooted "$copyright_path")")" = "root:root $copyright_mode" ]
+
+result_dir=$(mktemp -d)
+trap 'rm -rf "$result_dir"' EXIT HUP INT TERM
+set +e
+"$(rooted "$command_path")" >"$result_dir/stdout" 2>"$result_dir/stderr"
+command_status=$?
+set -e
+[ "$command_status" -eq 2 ]
+[ ! -s "$result_dir/stdout" ]
+printf '%s\n' 'usage: synodrive-status <absolute-path>' >"$result_dir/expected-stderr"
+[ "$(sha256sum "$result_dir/stderr" | awk '{print $1}')" = "$(sha256sum "$result_dir/expected-stderr" | awk '{print $1}')" ]
+
+for path in $command_path $plugin_path; do
+    if ! ldd -r "$(rooted "$path")" >"$result_dir/ldd" 2>&1; then
+        cat "$result_dir/ldd" >&2
+        exit 1
+    fi
+    if grep -Eqi 'not found|undefined symbol|synology' "$result_dir/ldd"; then
+        cat "$result_dir/ldd" >&2
+        exit 1
+    fi
+done
+ldconfig -p | grep -F 'libnautilus-extension.so.4 ' >/dev/null
+
+case $format in
+    DEB)
+        verify_output=$(dpkg --verify "$package")
+        [ -z "$verify_output" ]
+        dpkg --purge "$package"
+        if dpkg-query -W "$package" >/dev/null 2>&1; then
+            printf '%s\n' 'error: DEB package remains installed after purge' >&2
+            exit 1
+        fi
+        ;;
+    RPM)
+        verify_output=$(rpm --verify "$package")
+        [ -z "$verify_output" ]
+        rpm --erase "$package"
+        if rpm -q "$package" >/dev/null 2>&1; then
+            printf '%s\n' 'error: RPM package remains installed after erase' >&2
+            exit 1
+        fi
+        ;;
+esac
+
+old_ifs=$IFS
+IFS='
+'
+for path in $owned_files; do
+    assert_absent "$path"
+done
+IFS=$old_ifs
+assert_absent "$doc_path"
+assert_absent /opt/Synology/SynologyDrive

@@ -20,6 +20,7 @@ run_leg() {
     label=$1
     dockerfile=$2
     image=$3
+    runtime_image=$image-runtime
     version=$4
     format=$5
     directory=$6
@@ -32,7 +33,7 @@ run_leg() {
     find "$output_dir" -maxdepth 1 -type f -name "synodrive-dolphin*.$suffix" -delete
 
     printf '%s\n' "==> $label"
-    docker build --file "$repo_root/ci/$dockerfile" --tag "$image" "$repo_root/ci"
+    docker build --file "$repo_root/ci/$dockerfile" --target build --tag "$image" "$repo_root/ci"
     docker run --rm --init --network none \
         --mount "type=bind,source=$repo_root,target=/src,readonly" \
         --mount "type=bind,source=$output_dir,target=/packages" \
@@ -58,6 +59,15 @@ run_leg() {
             chown "$PACKAGE_UID:$PACKAGE_GID" "$artifact"
         '
     test -f "$artifact"
+
+    docker build --file "$repo_root/ci/$dockerfile" --target runtime --tag "$runtime_image" "$repo_root/ci"
+    docker run --rm --init --network none \
+        --mount "type=bind,source=$repo_root,target=/src,readonly" \
+        --mount "type=bind,source=$output_dir,target=/packages,readonly" \
+        --workdir /src \
+        --env SYNODRIVE_PACKAGE_CONTAINER=1 \
+        "$runtime_image" \
+        /src/ci/validate-package-lifecycle "$format" "/packages/$filename"
 }
 
 run_leg 'Ubuntu 26.04 package' ubuntu.Dockerfile synodrive-dolphin-ci:ubuntu-26.04 26.04 DEB ubuntu-26.04 synodrive-dolphin_0.3.0-1_amd64.deb deb
