@@ -49,7 +49,7 @@ run_leg() {
             printf "distribution=%s architecture=%s\n" "$VERSION_ID" "$arch"
             test "$VERSION_ID" = "$EXPECTED_VERSION"
             test "$arch" = x86_64
-            cmake -S /src -B /build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
+            cmake -S /src -B /build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF -DCMAKE_INSTALL_PREFIX=/usr
             cmake --build /build
             cpack --config /build/CPackConfig.cmake -G "$PACKAGE_FORMAT" -B /packages
 

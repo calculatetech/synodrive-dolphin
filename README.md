@@ -1,13 +1,15 @@
 # Synology Drive Dolphin Extension (Unofficial)
 
-The Synology Drive Dolphin Extension (Unofficial) shows Synology Drive file-status overlays in the Dolphin file manager.
+The Synology Drive Dolphin Extension (Unofficial) adds Synology Drive status overlays and file actions to Dolphin.
 
-The project contains two components:
+The project contains four components:
 
 - `synodrive-status` reads status information through the installed Synology Drive helper.
 - `synodrive-overlay.so` supplies asynchronous overlays through the KF6 `KOverlayIconPlugin` interface.
+- `synodrive-fileitemaction.so` adds a Synology Drive submenu to Dolphin.
+- `synodrive-action` gets available actions and sends one selected action to Synology Drive.
 
-Dolphin never loads the private Synology library. The status command isolates each private-library query in a short-lived child process.
+Dolphin never loads the private Synology library. Separate helper processes isolate status queries and user-selected actions.
 
 ## Supported system
 
@@ -34,6 +36,15 @@ Other internal client majors and malformed client metadata fail without an overl
 | Unknown or unsupported | No overlay |
 
 Error and conflict overlays are not included because their Synology status values are not verified.
+
+## File actions
+
+Right-click one existing local file or folder. The Synology Drive submenu can contain these actions:
+
+- Get link
+- Browse previous versions
+
+Synology Drive decides which actions are available. Get link opens the Synology share window, which contains a copy-link action. Browse previous versions opens the Synology file-history window.
 
 ## Install and use
 

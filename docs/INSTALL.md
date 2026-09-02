@@ -30,7 +30,7 @@ The Nautilus application is not required. Only its extension runtime library is 
 Fedora uses different package names. Install the source-build dependencies with:
 
 ```bash
-sudo dnf install cmake gcc-c++ kf6-kio-devel ninja-build python3 qt6-qtbase-devel
+sudo dnf install cmake gcc-c++ kf6-kio-devel nautilus-extensions ninja-build python3 qt6-qtbase-devel
 ```
 
 ## Build
@@ -51,7 +51,9 @@ ctest --test-dir build --output-on-failure
 The build creates these delivery files:
 
 - `build/synodrive-status`
+- `build/synodrive-action`
 - `build/synodrive-overlay.so`
+- `build/synodrive-fileitemaction.so`
 
 ## Build package candidates
 
@@ -95,18 +97,22 @@ Restart Dolphin after installation.
 
 ## Install from source
 
-Install the command and the Dolphin plugin under `/usr`:
+Configure the install prefix before you build. The action plugin stores the private helper path at build time.
 
 ```bash
-sudo cmake --install build --prefix /usr
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=/usr
+cmake --build build
+ctest --test-dir build --output-on-failure
+sudo cmake --install build
 ```
 
-The command is installed at `/usr/bin/synodrive-status`. CMake installs the plugin under the Qt 6 plugin directory.
+The status command is installed at `/usr/bin/synodrive-status`. The action helper is private and is installed below `/usr/libexec/synodrive-dolphin`. CMake installs both Dolphin plugins under the Qt 6 plugin directory.
 
 On the supported Debian or Ubuntu system, the plugin path is:
 
 ```text
 /usr/lib/x86_64-linux-gnu/qt6/plugins/kf6/overlayicon/synodrive-overlay.so
+/usr/lib/x86_64-linux-gnu/qt6/plugins/kf6/kfileitemaction/synodrive-fileitemaction.so
 ```
 
 Restart Dolphin after installation:
@@ -142,6 +148,7 @@ Make sure that the installed module exists:
 
 ```bash
 test -f "$(qtpaths6 --plugin-dir)/kf6/overlayicon/synodrive-overlay.so"
+test -f "$(qtpaths6 --plugin-dir)/kf6/kfileitemaction/synodrive-fileitemaction.so"
 ```
 
 ## Upgrade a source installation
@@ -149,10 +156,10 @@ test -f "$(qtpaths6 --plugin-dir)/kf6/overlayicon/synodrive-overlay.so"
 Get the new source, rebuild it, and install it over the current files:
 
 ```bash
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=/usr
 cmake --build build
 ctest --test-dir build --output-on-failure
-sudo cmake --install build --prefix /usr
+sudo cmake --install build
 ```
 
 Then restart Dolphin.
@@ -185,11 +192,13 @@ Package upgrade instructions will be added after the first package release exist
 
 ## Remove a source installation
 
-Remove the three installed files:
+Remove the five installed files:
 
 ```bash
 sudo rm /usr/bin/synodrive-status
+sudo rm /usr/libexec/synodrive-dolphin/synodrive-action
 sudo rm "$(qtpaths6 --plugin-dir)/kf6/overlayicon/synodrive-overlay.so"
+sudo rm "$(qtpaths6 --plugin-dir)/kf6/kfileitemaction/synodrive-fileitemaction.so"
 sudo rm /usr/share/doc/synodrive-dolphin/copyright
 ```
 

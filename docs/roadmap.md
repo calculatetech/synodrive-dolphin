@@ -23,27 +23,21 @@ No task is active.
 
 ## Planned next
 
-- **SDD-007 — Prove context-menu integration.**
-  - Build a bounded prototype against the installed private helper.
-  - List and invoke “Get link” and “Browse previous versions” from a separate process.
-  - Support one local selection and return within 250 ms.
-  - Never load Synology code into Dolphin.
-  - Record the private ABI. Discard the prototype if either action is unreliable.
-
 ## Planned later
+
+- **SDD-013 — Inspect Windows Get link behavior.**
+  - Use a current Windows host and record the Synology Drive version and shell-extension registration.
+  - Determine whether “Get link” copies a URL, opens the share window, or exposes another command.
+  - Record the invoked executable, IPC action, or shell command when it is observable.
+  - Redact account data and generated links from committed evidence.
+  - Create a separate Linux task only if the study proves a stable direct-copy interface.
+  - Do not block SDD-008 or version 1.0 on this study.
 
 - **SDD-012 — Prove a persistent GLib-aware status worker.**
   - Load the Synology status libraries once in a separate process.
   - Dispatch the required GLib main context without blocking Dolphin.
   - Prove live status transitions, repeated queries, and process recovery.
   - Adopt the worker only when it stays current and reduces active-sync CPU use.
-
-- **SDD-008 — Ship safe context-menu actions.**
-  - Start this task only if SDD-007 succeeds.
-  - Add a native KF6 `KAbstractFileItemActionPlugin` in the `kf6/kfileitemaction` namespace.
-  - Show “Get link” and “Browse previous versions” for one eligible local file or directory.
-  - Show no action after a timeout, unsupported selection, or helper error.
-  - Include the plugin in both packages.
 
 - **SDD-009 — Complete the v1.0 gate.**
   - Document the support matrix and package commands in the README, installation guide, and usage guide.
@@ -71,7 +65,6 @@ No task is active.
 - Synology does not provide a supported Dolphin API. A private helper change can break this extension.
 - Containers prove builds and package lifecycle. They do not prove live overlays or account-backed actions.
 - Synology officially supports Ubuntu Linux. Fedora runtime support depends on community packaging and contributor reports.
-- A failed context-menu prototype does not block v1.0. Move SDD-008 to Declined and document the result.
 
 ## Declined
 
@@ -88,6 +81,19 @@ The project does not plan these items for v1.0:
 Use `synodrive-status <absolute-path>` for command-line troubleshooting.
 
 ## Completed
+
+- **SDD-008 — Ship safe context-menu actions.**
+  - Added a native KF6 `KAbstractFileItemActionPlugin` in the `kf6/kfileitemaction` namespace.
+  - Added “Get link” and “Browse previous versions” for one eligible local file or directory.
+  - Added fail-closed selection, timeout, helper, and activation handling.
+  - Added the plugin and isolated action helper to the DEB and RPM packages.
+
+- **SDD-007 — Prove context-menu integration.**
+  - Proved both actions on Synology Drive `8.0.2-17889`, internal version `4.0.2-17889`, and ABI 15.
+  - Listed and invoked “Get link” and “Browse previous versions” from a separate process.
+  - Completed 20 list runs in 6.106 ms through 9.070 ms.
+  - Kept Synology libraries outside Dolphin.
+  - Recorded the private action names, handlers, requests, and Synology-owned window behavior.
 
 - **SDD-005 — Test the package lifecycle.**
   - Install and remove each package in disposable Ubuntu and Fedora containers.

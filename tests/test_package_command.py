@@ -62,7 +62,7 @@ def assert_run_boundaries(calls, checkout):
         ]
         assert build_run[:-1] == expected, build_run
         command = build_run[-1]
-        assert "cmake -S /src -B /build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF" in command, command
+        assert "cmake -S /src -B /build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF -DCMAKE_INSTALL_PREFIX=/usr" in command, command
         assert "cmake --build /build" in command, command
         assert 'cpack --config /build/CPackConfig.cmake -G "$PACKAGE_FORMAT" -B /packages' in command, command
         assert '/src/ci/validate-package "$PACKAGE_FORMAT" "$artifact"' in command, command
@@ -84,12 +84,12 @@ def assert_validator(validator, root):
         (
             "DEB", "/usr/lib/x86_64-linux-gnu/qt6/plugins", "deb",
             ["Package", "Version", "Architecture", "Maintainer", "Homepage", "Section", "Priority", "Description"],
-            ["dolphin", "libnautilus-extension4", "libc6", "libgcc-s1", "libkf6kiocore6", "libqt6core6t64", "libstdc++6"],
+            ["dolphin", "libnautilus-extension4", "libc6", "libgcc-s1", "libkf6coreaddons6", "libkf6kiocore6", "libkf6kiowidgets6", "libqt6core6t64", "libqt6widgets6", "libstdc++6"],
         ),
         (
             "RPM", "/usr/lib64/qt6/plugins", "rpm",
             ["%{NAME}", "%{VERSION}", "%{RELEASE}", "%{ARCH}", "%{SUMMARY}", "%{LICENSE}", "%{URL}", "%{VENDOR}", "%{PACKAGER}"],
-            ["dolphin", "libnautilus-extension.so.4()(64bit)", "libc.so.6()(64bit)", "libgcc_s.so.1()(64bit)", "libKF6KIOCore.so.6()(64bit)", "libQt6Core.so.6()(64bit)", "libstdc++.so.6()(64bit)"],
+            ["dolphin", "libnautilus-extension.so.4()(64bit)", "libc.so.6()(64bit)", "libgcc_s.so.1()(64bit)", "libKF6CoreAddons.so.6()(64bit)", "libKF6KIOCore.so.6()(64bit)", "libKF6KIOWidgets.so.6()(64bit)", "libQt6Core.so.6()(64bit)", "libQt6Widgets.so.6()(64bit)", "libstdc++.so.6()(64bit)"],
         ),
     ]:
         artifact = root / f"candidate.{suffix}"
@@ -289,7 +289,9 @@ args = sys.argv[1:]
 plugin_root = os.environ['FAKE_PLUGIN_ROOT']
 payload = [
     '/usr/bin/synodrive-status',
+    '/usr/libexec/synodrive-dolphin/synodrive-action',
     f'{plugin_root}/kf6/overlayicon/synodrive-overlay.so',
+    f'{plugin_root}/kf6/kfileitemaction/synodrive-fileitemaction.so',
     '/usr/share/doc/synodrive-dolphin/copyright',
 ]
 if os.environ.get('FAKE_DUPLICATE'):
@@ -308,9 +310,11 @@ if os.environ.get('FAKE_MISSING_PLUGIN'):
 root = pathlib.Path(os.environ.get('SYNODRIVE_LIFECYCLE_TEST_ROOT', '/'))
 state = root / '.installed'
 command_path = '/usr/bin/synodrive-status'
+action_helper_path = '/usr/libexec/synodrive-dolphin/synodrive-action'
 plugin_path = f'{plugin_root}/kf6/overlayicon/synodrive-overlay.so'
+action_plugin_path = f'{plugin_root}/kf6/kfileitemaction/synodrive-fileitemaction.so'
 copyright_path = '/usr/share/doc/synodrive-dolphin/copyright'
-lifecycle_files = [command_path, plugin_path, copyright_path]
+lifecycle_files = [command_path, action_helper_path, plugin_path, action_plugin_path, copyright_path]
 
 def installed_path(path):
     return root / path.lstrip('/')
@@ -382,7 +386,8 @@ if tool == 'qtpaths6':
     print(plugin_root)
 elif tool == 'dpkg-deb':
     dependencies = ('dolphin, libnautilus-extension4, libc6 (>= 2.34), '
-                    'libgcc-s1, libkf6kiocore6, libqt6core6t64, libstdc++6')
+                    'libgcc-s1, libkf6coreaddons6, libkf6kiocore6, '
+                    'libkf6kiowidgets6, libqt6core6t64, libqt6widgets6, libstdc++6')
     if os.environ.get('FAKE_SYNOLOGY_DEPENDENCY'):
         dependencies += ', synology-drive'
     if os.environ.get('FAKE_DUPLICATE_DEPENDENCY'):
@@ -456,8 +461,10 @@ elif tool == 'dpkg':
 elif tool == 'rpm':
     dependencies = [
         'dolphin', 'libnautilus-extension.so.4()(64bit)', 'libc.so.6()(64bit)',
-        'libgcc_s.so.1()(64bit)', 'libKF6KIOCore.so.6()(64bit)',
-        'libQt6Core.so.6()(64bit)', 'libstdc++.so.6()(64bit)',
+        'libgcc_s.so.1()(64bit)', 'libKF6CoreAddons.so.6()(64bit)',
+        'libKF6KIOCore.so.6()(64bit)', 'libKF6KIOWidgets.so.6()(64bit)',
+        'libQt6Core.so.6()(64bit)', 'libQt6Widgets.so.6()(64bit)',
+        'libstdc++.so.6()(64bit)',
     ]
     if os.environ.get('FAKE_SYNOLOGY_DEPENDENCY'):
         dependencies.append('synology-drive')
@@ -518,7 +525,9 @@ elif tool == 'file':
 elif tool == 'stat':
     path = args[-1]
     logical = '/' + str(pathlib.Path(path).relative_to(root))
-    modes = {command_path: '755', plugin_path: '644' if os.environ['FAKE_FORMAT'] == 'DEB' else '755', copyright_path: '644'}
+    plugin_mode = '644' if os.environ['FAKE_FORMAT'] == 'DEB' else '755'
+    modes = {command_path: '755', action_helper_path: '755', plugin_path: plugin_mode,
+             action_plugin_path: plugin_mode, copyright_path: '644'}
     result = f'root:root {modes[logical]}'
     if os.environ.get('FAKE_BAD_STAT_PATH') == logical:
         result = os.environ['FAKE_BAD_STAT_VALUE']
@@ -622,8 +631,8 @@ elif tool == 'ldconfig':
             "RPM": ["%{NAME}", "%{VERSION}", "%{RELEASE}", "%{ARCH}", "%{SUMMARY}", "%{LICENSE}", "%{URL}", "%{VENDOR}", "%{PACKAGER}"],
         }
         archive_dependencies = {
-            "DEB": ["dolphin", "libnautilus-extension4", "libc6", "libgcc-s1", "libkf6kiocore6", "libqt6core6t64", "libstdc++6"],
-            "RPM": ["dolphin", "libnautilus-extension.so.4()(64bit)", "libc.so.6()(64bit)", "libgcc_s.so.1()(64bit)", "libKF6KIOCore.so.6()(64bit)", "libQt6Core.so.6()(64bit)", "libstdc++.so.6()(64bit)"],
+            "DEB": ["dolphin", "libnautilus-extension4", "libc6", "libgcc-s1", "libkf6coreaddons6", "libkf6kiocore6", "libkf6kiowidgets6", "libqt6core6t64", "libqt6widgets6", "libstdc++6"],
+            "RPM": ["dolphin", "libnautilus-extension.so.4()(64bit)", "libc.so.6()(64bit)", "libgcc_s.so.1()(64bit)", "libKF6CoreAddons.so.6()(64bit)", "libKF6KIOCore.so.6()(64bit)", "libKF6KIOWidgets.so.6()(64bit)", "libQt6Core.so.6()(64bit)", "libQt6Widgets.so.6()(64bit)", "libstdc++.so.6()(64bit)"],
         }
         for package_format in ["DEB", "RPM"]:
             for field in archive_fields[package_format]:
@@ -675,7 +684,10 @@ elif tool == 'ldconfig':
         for package_format in ["DEB", "RPM"]:
             plugin_path = plugin_paths[package_format]
             paths = [
-                "/usr/bin/synodrive-status", plugin_path,
+                "/usr/bin/synodrive-status",
+                "/usr/libexec/synodrive-dolphin/synodrive-action",
+                plugin_path,
+                plugin_path.replace("/overlayicon/synodrive-overlay.so", "/kfileitemaction/synodrive-fileitemaction.so"),
                 "/usr/share/doc/synodrive-dolphin/copyright",
             ]
             for field in metadata_fields[package_format]:
@@ -692,15 +704,15 @@ elif tool == 'ldconfig':
                 package_format, "installed symlink", FAKE_LIFECYCLE_SYMLINK=plugin_path,
             )
             for path in paths:
-                mode = "755" if path == "/usr/bin/synodrive-status" else "644"
-                if package_format == "RPM" and path == plugin_path:
+                mode = "755" if path in ["/usr/bin/synodrive-status", "/usr/libexec/synodrive-dolphin/synodrive-action"] else "644"
+                if package_format == "RPM" and "/kf6/" in path:
                     mode = "755"
                 for value in [f"user:root {mode}", f"root:group {mode}", "root:root 600"]:
                     assert_composed_reject(
                         package_format, f"installed stat {path} {value}",
                         FAKE_BAD_STAT_PATH=path, FAKE_BAD_STAT_VALUE=value,
                     )
-            for path in paths[:2]:
+            for path in paths[:4]:
                 assert_composed_reject(
                     package_format, f"installed file type {path}", FAKE_BAD_FILE_PATH=path,
                 )

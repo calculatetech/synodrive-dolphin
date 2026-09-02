@@ -10,7 +10,9 @@ include(CTest)
 include(GNUInstallDirs)
 set(CMAKE_AUTOMOC ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Core)
+find_package(Qt6 REQUIRED COMPONENTS Core Widgets)
+find_package(KF6CoreAddons REQUIRED)
+find_package(KF6KIO REQUIRED)
 
 find_path(KF6_KIO_INCLUDE_DIR KOverlayIconPlugin PATH_SUFFIXES KF6/KIOCore)
 find_library(KF6_KIOCORE_LIBRARY NAMES KF6KIOCore)
@@ -19,11 +21,45 @@ if(NOT KF6_KIO_INCLUDE_DIR OR NOT KF6_KIOCORE_LIBRARY)
 endif()
 get_filename_component(KF6_INCLUDE_ROOT "${KF6_KIO_INCLUDE_DIR}" DIRECTORY)
 
-add_executable(synodrive-status src/synodrive-status.cpp)
+add_executable(synodrive-status
+    src/synodrive-status.cpp
+    src/synodrive_compatibility.cpp
+)
 target_compile_features(synodrive-status PRIVATE cxx_std_17)
 target_link_libraries(synodrive-status PRIVATE dl)
 
 install(TARGETS synodrive-status RUNTIME DESTINATION bin)
+
+add_executable(synodrive-action
+    src/synodrive-action.cpp
+    src/synodrive_compatibility.cpp
+)
+target_compile_features(synodrive-action PRIVATE cxx_std_17)
+target_link_libraries(synodrive-action PRIVATE dl)
+set_target_properties(synodrive-action PROPERTIES
+    ENABLE_EXPORTS ON
+)
+install(TARGETS synodrive-action
+    RUNTIME DESTINATION ${CMAKE_INSTALL_LIBEXECDIR}/${PROJECT_NAME}
+)
+
+add_library(synodrive-fileitemaction MODULE
+    src/synodrive_fileitemaction_plugin.cpp
+)
+target_compile_features(synodrive-fileitemaction PRIVATE cxx_std_17)
+target_compile_definitions(synodrive-fileitemaction PRIVATE
+    SYNODRIVE_ACTION_PROGRAM="${CMAKE_INSTALL_FULL_LIBEXECDIR}/${PROJECT_NAME}/synodrive-action"
+)
+target_link_libraries(synodrive-fileitemaction PRIVATE
+    Qt6::Core
+    Qt6::Widgets
+    KF6::CoreAddons
+    KF6::KIOWidgets
+)
+set_target_properties(synodrive-fileitemaction PROPERTIES PREFIX "")
+install(TARGETS synodrive-fileitemaction
+    LIBRARY DESTINATION ${QT6_INSTALL_PLUGINS}/kf6/kfileitemaction
+)
 
 add_library(synodrive-overlay MODULE
     src/status_provider.cpp
@@ -47,7 +83,10 @@ install(FILES LICENSE
 if(BUILD_TESTING)
     find_package(Python3 REQUIRED COMPONENTS Interpreter)
     find_package(Qt6 REQUIRED COMPONENTS Test)
-    add_executable(synodrive-status-test src/synodrive-status.cpp)
+    add_executable(synodrive-status-test
+        src/synodrive-status.cpp
+        src/synodrive_compatibility.cpp
+    )
     target_compile_features(synodrive-status-test PRIVATE cxx_std_17)
     target_compile_definitions(synodrive-status-test PRIVATE SYNODRIVE_STATUS_TESTING)
     target_link_libraries(synodrive-status-test PRIVATE dl)
@@ -101,6 +140,73 @@ if(BUILD_TESTING)
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/test_package_command.py
                 ${CMAKE_SOURCE_DIR}/ci/package
     )
+
+    find_library(NAUTILUS_EXTENSION_LIBRARY NAMES nautilus-extension libnautilus-extension.so.4 REQUIRED)
+    find_library(GOBJECT_LIBRARY NAMES gobject-2.0 libgobject-2.0.so.0 REQUIRED)
+    find_library(GLIB_LIBRARY NAMES glib-2.0 libglib-2.0.so.0 REQUIRED)
+    add_library(fake-context-menu MODULE tests/fake_context_menu.cpp)
+    target_compile_features(fake-context-menu PRIVATE cxx_std_17)
+    target_link_libraries(fake-context-menu PRIVATE
+        ${NAUTILUS_EXTENSION_LIBRARY}
+        ${GOBJECT_LIBRARY}
+        ${GLIB_LIBRARY}
+    )
+    set_target_properties(fake-context-menu PROPERTIES
+        PREFIX ""
+        OUTPUT_NAME "plugin-cb-4"
+        LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/context-fixture"
+    )
+
+    add_executable(synodrive-action-test
+        src/synodrive-action.cpp
+        src/synodrive_compatibility.cpp
+    )
+    target_compile_features(synodrive-action-test PRIVATE cxx_std_17)
+    target_compile_definitions(synodrive-action-test PRIVATE SYNODRIVE_ACTION_TESTING)
+    target_link_libraries(synodrive-action-test PRIVATE dl)
+    set_target_properties(synodrive-action-test PROPERTIES ENABLE_EXPORTS ON)
+    set(CONTEXT_TEST_PLUGIN_ROOT "${CMAKE_BINARY_DIR}/context-test-plugins")
+    add_library(synodrive-fileitemaction-test MODULE
+        src/synodrive_fileitemaction_plugin.cpp
+    )
+    target_compile_features(synodrive-fileitemaction-test PRIVATE cxx_std_17)
+    target_compile_definitions(synodrive-fileitemaction-test PRIVATE
+        SYNODRIVE_ACTION_PROGRAM="$<TARGET_FILE:synodrive-action-test>"
+    )
+    target_link_libraries(synodrive-fileitemaction-test PRIVATE
+        Qt6::Core Qt6::Widgets KF6::CoreAddons KF6::KIOWidgets
+    )
+    set_target_properties(synodrive-fileitemaction-test PROPERTIES
+        PREFIX ""
+        OUTPUT_NAME "synodrive-fileitemaction"
+        LIBRARY_OUTPUT_DIRECTORY "${CONTEXT_TEST_PLUGIN_ROOT}/kf6/kfileitemaction"
+    )
+
+    add_executable(test-context-plugin
+        tests/test_context_plugin.cpp
+        src/synodrive_fileitemaction_plugin.cpp
+    )
+    target_compile_features(test-context-plugin PRIVATE cxx_std_17)
+    target_compile_definitions(test-context-plugin PRIVATE
+        SYNODRIVE_ACTION_PROGRAM="$<TARGET_FILE:synodrive-action-test>"
+    )
+    target_include_directories(test-context-plugin PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    target_link_libraries(test-context-plugin PRIVATE
+        Qt6::Core Qt6::Widgets Qt6::Test KF6::CoreAddons KF6::KIOWidgets
+    )
+    add_dependencies(test-context-plugin synodrive-fileitemaction-test)
+    add_test(
+        NAME context-actions
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/test_context_action.py
+                $<TARGET_FILE:synodrive-action-test>
+                $<TARGET_FILE:synodrive-action>
+                $<TARGET_FILE:fake-context-menu>
+                $<TARGET_FILE:synodrive-status-test>
+                $<TARGET_FILE:fake-synodrive-plugin>
+                $<TARGET_FILE:test-context-plugin>
+                ${CONTEXT_TEST_PLUGIN_ROOT}
+                $<TARGET_FILE:fake-synodrive-missing-symbol>
+    )
 endif()
 
 set(CPACK_PACKAGE_NAME "${PROJECT_NAME}")
@@ -108,7 +214,7 @@ set(CPACK_PACKAGE_VENDOR "calculatetech")
 set(CPACK_PACKAGE_CONTACT "Michael Beutler <mikebeutler84@gmail.com>")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "${PROJECT_DESCRIPTION}")
 set(CPACK_PACKAGE_DESCRIPTION
-    "Adds Synology Drive file-status overlays to KDE Dolphin. Synology Drive is installed separately."
+    "Adds Synology Drive file-status overlays and file actions to KDE Dolphin. Synology Drive is installed separately."
 )
 set(CPACK_PACKAGE_HOMEPAGE_URL "${PROJECT_HOMEPAGE_URL}")
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")

@@ -1,0 +1,14 @@
+{
+    "KPlugin": {
+        "Description": "Synology Drive file actions",
+        "License": "MIT",
+        "MimeTypes": [
+            "application/octet-stream",
+            "inode/directory"
+        ],
+        "Name": "Synology Drive",
+        "ServiceTypes": [
+            "KFileItemAction/Plugin"
+        ]
+    }
+}

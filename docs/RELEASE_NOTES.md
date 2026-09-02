@@ -7,6 +7,9 @@
 - Verify package metadata, payload, dependencies, and target architecture.
 - Validate package installation, runtime libraries, integrity, and removal in clean target containers.
 - Install the MIT license with source and package installs.
+- Add a native Synology Drive submenu for one local file or folder.
+- Add Get link and Browse previous versions when Synology Drive permits them.
+- Keep Synology libraries in a separate action-helper process.
 
 ## 0.2.0
 

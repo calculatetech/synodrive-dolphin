@@ -132,7 +132,7 @@ The runtime trace found two read-only main-database opens, two read/write SQLite
 
 The KF6 plugin is complete. Its test loads the built module through `QPluginLoader`. A composed check calls `getOverlays` through the reviewed CLI and its private-library fixture. It proves that one wrapper uses different query-child PIDs. The suite also proves nonblocking cache misses, all six mappings, UTF-8 framing, and active and queued deduplication. It proves a terminal result for each distinct queued URL. The failure checks cover the full queue, oversized responses, `error` responses, and wrapper exit. The suite proves zero stable timer queries, syncing-only polling, mixed-cache isolation, mapped-overlay notification equality, process restart, and silent inactive-cache pruning. Plugin destruction is nonblocking and removes the wrapper and its active query child. Static inspection shows that the plugin depends only on Qt, KF6 KIO, and standard runtime libraries. It has no private helper symbols or dynamic-loader calls. All four selected emblem names exist in the installed icon themes.
 
-The temporary install manifest contains only:
+The temporary install manifest for the overlay-only candidate contained:
 
 ```text
 /usr/bin/synodrive-status
@@ -142,11 +142,60 @@ The temporary install manifest contains only:
 
 No file contains a Synology binary.
 
-The v0.3.0 package candidates use CPack. The Ubuntu 26.04 DEB and Fedora 44 RPM contain the same three regular files. Native scanners generate linked-library dependencies. Explicit metadata adds Dolphin and the Nautilus extension runtime. Neither package requires or contains Synology software.
+The unreleased v0.3.0 candidate now adds the private action helper and the KF6 file-action plugin. The Ubuntu 26.04 DEB and Fedora 44 RPM contain the same five regular files. Native scanners generate linked-library dependencies. Explicit metadata adds Dolphin and the Nautilus extension runtime. Neither package requires or contains Synology software.
 
 The package command also validates each candidate in a clean target container. It uses the native package manager to install, query, verify, and remove the package. The check runs both installed binaries through the dynamic loader. It also confirms the exact file set, metadata, ownership, permissions, command result, license bytes, and complete removal.
 
-### Build and install
+## 11. Context-menu feasibility
+
+SDD-007 proved both installed Synology menu actions on 2026-09-02. The test system used Synology Drive `8.0.2-17889`, internal version `4.0.2-17889`, AMD64, and overlay ABI directory `15`.
+
+The user helper resolved to:
+
+```text
+/home/mbeutler/.SynologyDrive/SynologyDrive.app/icon-overlay/15/lib/plugin-cb-4.so
+SHA-256: 84d7d68f1722e8943c76701a4d7f351474e55266a74ebd5df8078dd0e1c9bb44
+```
+
+The private entry point is:
+
+```text
+GList *cstn_private_get_file_item(NautilusMenuProvider *, GList *);
+```
+
+The helper calls `nautilus_file_info_get_uri` for the selected object. It converts the URI to a local path and runs its private deciders. It returns a Nautilus root item with a `menu` submenu.
+
+The probe reads the real returned menu objects. It activates a selected child through `nautilus_menu_item_activate`. The private callback then reads the stored action data and calls the matching handler.
+
+One synced file returned both exact enabled labels:
+
+```text
+Get link
+Browse previous versions
+```
+
+The returned GObject names were exact and stable during the study:
+
+```text
+NautilusCloudStation::ShareLink
+NautilusCloudStation::VersionBrowse
+```
+
+Twenty fresh list processes passed. Results ranged from 6.106 ms to 9.070 ms, with a mean of 7.938 ms. Each result included process startup, helper loading, private deciders, traversal, output, and exit.
+
+The debugger reached `ShareLinkHandler::Handle` and `BrowseVersionHandler::Handle`. Each handler received one path: `/home/mbeutler/Documents/wsmbug.txt`.
+
+The “Get link” action connected to `~/.SynologyDrive/ui.sock`. It sent one 69-byte frame with `action=share_link` and the exact path.
+
+The “Browse previous versions” action used the same socket. It sent one 71-byte frame with `action=list_version` and the exact path.
+
+Three consecutive processes sent each action frame and exited normally. The Synology user interface forced each action window to the foreground. The repeated validation windows required a forced stop of `cloud-drive-ui`. The sync daemon and connection process continued to run.
+
+Get link opened the Synology share window. That window contained the sharing options and a copy-link action. Browse previous versions opened the Synology file-history window. The tested window had minimize and download actions, but it had no close action.
+
+SDD-007 succeeded for the recorded installed ABI. SDD-008 implements one user-triggered action at a time through a separate process. Dolphin owns each action process until it exits, even if the context menu closes. If the menu owner closes before a failure, the application shows one nonblocking error dialog. The Dolphin process does not load a Synology library. Automated tests use a fake private provider and do not invoke real actions on an interactive desktop.
+
+## 12. Build and install
 
 Install the development and runtime dependencies. This does not require the Nautilus application:
 
@@ -157,7 +206,7 @@ sudo apt install cmake ninja-build g++ qt6-base-dev libkf6kio-dev libnautilus-ex
 Build and test:
 
 ```bash
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=/usr
 cmake --build build
 ctest --test-dir build --output-on-failure
 ```
@@ -165,7 +214,7 @@ ctest --test-dir build --output-on-failure
 Install for the system:
 
 ```bash
-sudo cmake --install build --prefix /usr
+sudo cmake --install build
 ```
 
 Restart Dolphin after installation. Do not copy any Synology library into the install tree. The helper loads the user's installed Synology copy at run time.

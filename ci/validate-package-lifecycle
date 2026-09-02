@@ -19,18 +19,21 @@ script_dir=${0%/*}
 repo_root=$(CDPATH= cd -- "$script_dir/.." && pwd)
 package=synodrive-dolphin
 command_path=/usr/bin/synodrive-status
+action_helper_path=/usr/libexec/synodrive-dolphin/synodrive-action
 copyright_path=/usr/share/doc/synodrive-dolphin/copyright
 doc_path=/usr/share/doc/synodrive-dolphin
 
 case $format in
     DEB)
         plugin_path=/usr/lib/x86_64-linux-gnu/qt6/plugins/kf6/overlayicon/synodrive-overlay.so
+        action_plugin_path=/usr/lib/x86_64-linux-gnu/qt6/plugins/kf6/kfileitemaction/synodrive-fileitemaction.so
         command_mode=755
         plugin_mode=644
         copyright_mode=644
         ;;
     RPM)
         plugin_path=/usr/lib64/qt6/plugins/kf6/overlayicon/synodrive-overlay.so
+        action_plugin_path=/usr/lib64/qt6/plugins/kf6/kfileitemaction/synodrive-fileitemaction.so
         command_mode=755
         plugin_mode=755
         copyright_mode=644
@@ -56,7 +59,9 @@ query_rpm() {
 }
 
 assert_absent "$command_path"
+assert_absent "$action_helper_path"
 assert_absent "$plugin_path"
+assert_absent "$action_plugin_path"
 assert_absent "$copyright_path"
 assert_absent "$doc_path"
 assert_absent /opt/Synology/SynologyDrive
@@ -119,20 +124,24 @@ for path in $owned_paths; do
 done
 IFS=$old_ifs
 owned_files=$(printf '%s\n' "$owned_files" | sed '/^$/d' | sort)
-expected_files=$(printf '%s\n' "$command_path" "$plugin_path" "$copyright_path" | sort)
+expected_files=$(printf '%s\n' "$command_path" "$action_helper_path" "$plugin_path" "$action_plugin_path" "$copyright_path" | sort)
 [ "$owned_files" = "$expected_files" ]
 
-for path in $command_path $plugin_path $copyright_path; do
+for path in $command_path $action_helper_path $plugin_path $action_plugin_path $copyright_path; do
     rooted_path=$(rooted "$path")
     [ -f "$rooted_path" ]
     [ ! -L "$rooted_path" ]
 done
 
 file -b "$(rooted "$command_path")" | grep -Fq ELF
+file -b "$(rooted "$action_helper_path")" | grep -Fq ELF
 file -b "$(rooted "$plugin_path")" | grep -Fq ELF
+file -b "$(rooted "$action_plugin_path")" | grep -Fq ELF
 [ "$(sha256sum "$(rooted "$copyright_path")" | awk '{print $1}')" = "$(sha256sum "$repo_root/LICENSE" | awk '{print $1}')" ]
 [ "$(stat -c '%U:%G %a' "$(rooted "$command_path")")" = "root:root $command_mode" ]
+[ "$(stat -c '%U:%G %a' "$(rooted "$action_helper_path")")" = "root:root $command_mode" ]
 [ "$(stat -c '%U:%G %a' "$(rooted "$plugin_path")")" = "root:root $plugin_mode" ]
+[ "$(stat -c '%U:%G %a' "$(rooted "$action_plugin_path")")" = "root:root $plugin_mode" ]
 [ "$(stat -c '%U:%G %a' "$(rooted "$copyright_path")")" = "root:root $copyright_mode" ]
 
 result_dir=$(mktemp -d)
@@ -146,7 +155,7 @@ set -e
 printf '%s\n' 'usage: synodrive-status <absolute-path>' >"$result_dir/expected-stderr"
 [ "$(sha256sum "$result_dir/stderr" | awk '{print $1}')" = "$(sha256sum "$result_dir/expected-stderr" | awk '{print $1}')" ]
 
-for path in $command_path $plugin_path; do
+for path in $command_path $action_helper_path $plugin_path $action_plugin_path; do
     if ! ldd -r "$(rooted "$path")" >"$result_dir/ldd" 2>&1; then
         cat "$result_dir/ldd" >&2
         exit 1

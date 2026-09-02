@@ -14,6 +14,18 @@ If a recent path is syncing, the extension checks it once per second. The checks
 
 The plugin does not add overlays to remote URLs. Unknown and unsupported files have no overlay.
 
+## Use file actions
+
+1. Right-click one existing local file or folder.
+2. Open the Synology Drive submenu.
+3. Select Get link or Browse previous versions.
+
+Get link opens the Synology share window. Use its copy-link action to copy the share link. Browse previous versions opens the Synology file-history window.
+
+Synology Drive owns both windows. Some installed versions do not show a close action in the file-history window. You can minimize that window or close the Synology Drive user interface.
+
+The submenu is absent when Synology Drive returns no supported action. It is also absent for remote URLs, multiple selections, missing paths, incompatible client versions, and slow helper responses.
+
 ## Query one path
 
 Use `synodrive-status` to inspect one local path:
@@ -67,6 +79,7 @@ Make sure that these conditions are true:
 - The `current` icon-overlay link resolves to ABI directory `15`.
 - `libnautilus-extension.so.4` is available.
 - The Dolphin plugin exists under the Qt 6 plugin directory.
+- The Dolphin action plugin and private helper are installed.
 
 Run these commands:
 
@@ -75,6 +88,8 @@ sed -n '/^\[Version\]$/,/^\[/p' /opt/Synology/SynologyDrive/INFO
 readlink -f "$HOME/.SynologyDrive/SynologyDrive.app/icon-overlay/current"
 ldconfig -p | grep libnautilus-extension.so.4
 test -f "$(qtpaths6 --plugin-dir)/kf6/overlayicon/synodrive-overlay.so"
+test -f "$(qtpaths6 --plugin-dir)/kf6/kfileitemaction/synodrive-fileitemaction.so"
+test -x /usr/libexec/synodrive-dolphin/synodrive-action
 ```
 
 Then query a known synchronized file:
