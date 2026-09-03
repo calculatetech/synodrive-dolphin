@@ -12,5 +12,5 @@ FROM common AS runtime
 
 RUN dnf install -y --setopt=install_weak_deps=False \
         --disablerepo=fedora-cisco-openh264 \
-        dolphin file nautilus-extensions \
+        dolphin file nautilus-extensions python3 \
     && dnf clean all

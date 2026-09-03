@@ -19,6 +19,7 @@ script_dir=${0%/*}
 repo_root=$(CDPATH= cd -- "$script_dir/.." && pwd)
 package=synodrive-dolphin
 command_path=/usr/bin/synodrive-status
+patch_command_path=/usr/bin/synodrive-tray-patch
 action_helper_path=/usr/libexec/synodrive-dolphin/synodrive-action
 copyright_path=/usr/share/doc/synodrive-dolphin/copyright
 doc_path=/usr/share/doc/synodrive-dolphin
@@ -59,12 +60,24 @@ query_rpm() {
 }
 
 assert_absent "$command_path"
+assert_absent "$patch_command_path"
 assert_absent "$action_helper_path"
 assert_absent "$plugin_path"
 assert_absent "$action_plugin_path"
 assert_absent "$copyright_path"
 assert_absent "$doc_path"
 assert_absent /opt/Synology/SynologyDrive
+
+result_dir=$(mktemp -d)
+trap 'rm -rf "$result_dir"' EXIT HUP INT TERM
+unpatched_home=$result_dir/unpatched-home
+patched_home=$result_dir/patched-home
+python3 "$repo_root/tests/tray_patch_fixture.py" "$unpatched_home" unpatched
+python3 "$repo_root/tests/tray_patch_fixture.py" "$patched_home" patched
+unpatched_target=$unpatched_home/.SynologyDrive/SynologyDrive.app/bin/cloud-drive-ui
+patched_target=$patched_home/.SynologyDrive/SynologyDrive.app/bin/cloud-drive-ui
+unpatched_before=$(sha256sum "$unpatched_target"; /usr/bin/stat -c '%u:%g %a' "$unpatched_target")
+patched_before=$(sha256sum "$patched_target"; /usr/bin/stat -c '%u:%g %a' "$patched_target")
 
 case $format in
     DEB)
@@ -74,7 +87,7 @@ case $format in
         fi
         dpkg --install "$artifact"
         [ "$(query_deb '${binary:Package}')" = "$package" ]
-        [ "$(query_deb '${Version}')" = 0.3.0-1 ]
+        [ "$(query_deb '${Version}')" = 0.4.0-1 ]
         [ "$(query_deb '${Architecture}')" = amd64 ]
         [ "$(query_deb '${Maintainer}')" = 'Michael Beutler <mikebeutler84@gmail.com>' ]
         [ "$(query_deb '${Homepage}')" = https://github.com/calculatetech/synodrive-dolphin ]
@@ -90,7 +103,7 @@ case $format in
         fi
         rpm --install "$artifact"
         [ "$(query_rpm '%{NAME}')" = "$package" ]
-        [ "$(query_rpm '%{VERSION}')" = 0.3.0 ]
+        [ "$(query_rpm '%{VERSION}')" = 0.4.0 ]
         [ "$(query_rpm '%{RELEASE}')" = 1 ]
         [ "$(query_rpm '%{ARCH}')" = x86_64 ]
         [ "$(query_rpm '%{SUMMARY}')" = 'Synology Drive Dolphin Extension (Unofficial)' ]
@@ -124,28 +137,28 @@ for path in $owned_paths; do
 done
 IFS=$old_ifs
 owned_files=$(printf '%s\n' "$owned_files" | sed '/^$/d' | sort)
-expected_files=$(printf '%s\n' "$command_path" "$action_helper_path" "$plugin_path" "$action_plugin_path" "$copyright_path" | sort)
+expected_files=$(printf '%s\n' "$command_path" "$patch_command_path" "$action_helper_path" "$plugin_path" "$action_plugin_path" "$copyright_path" | sort)
 [ "$owned_files" = "$expected_files" ]
 
-for path in $command_path $action_helper_path $plugin_path $action_plugin_path $copyright_path; do
+for path in $command_path $patch_command_path $action_helper_path $plugin_path $action_plugin_path $copyright_path; do
     rooted_path=$(rooted "$path")
     [ -f "$rooted_path" ]
     [ ! -L "$rooted_path" ]
 done
 
 file -b "$(rooted "$command_path")" | grep -Fq ELF
+file -b "$(rooted "$patch_command_path")" | grep -Fq ELF
 file -b "$(rooted "$action_helper_path")" | grep -Fq ELF
 file -b "$(rooted "$plugin_path")" | grep -Fq ELF
 file -b "$(rooted "$action_plugin_path")" | grep -Fq ELF
 [ "$(sha256sum "$(rooted "$copyright_path")" | awk '{print $1}')" = "$(sha256sum "$repo_root/LICENSE" | awk '{print $1}')" ]
 [ "$(stat -c '%U:%G %a' "$(rooted "$command_path")")" = "root:root $command_mode" ]
+[ "$(stat -c '%U:%G %a' "$(rooted "$patch_command_path")")" = "root:root $command_mode" ]
 [ "$(stat -c '%U:%G %a' "$(rooted "$action_helper_path")")" = "root:root $command_mode" ]
 [ "$(stat -c '%U:%G %a' "$(rooted "$plugin_path")")" = "root:root $plugin_mode" ]
 [ "$(stat -c '%U:%G %a' "$(rooted "$action_plugin_path")")" = "root:root $plugin_mode" ]
 [ "$(stat -c '%U:%G %a' "$(rooted "$copyright_path")")" = "root:root $copyright_mode" ]
 
-result_dir=$(mktemp -d)
-trap 'rm -rf "$result_dir"' EXIT HUP INT TERM
 set +e
 "$(rooted "$command_path")" >"$result_dir/stdout" 2>"$result_dir/stderr"
 command_status=$?
@@ -155,7 +168,23 @@ set -e
 printf '%s\n' 'usage: synodrive-status <absolute-path>' >"$result_dir/expected-stderr"
 [ "$(sha256sum "$result_dir/stderr" | awk '{print $1}')" = "$(sha256sum "$result_dir/expected-stderr" | awk '{print $1}')" ]
 
-for path in $command_path $action_helper_path $plugin_path $action_plugin_path; do
+set +e
+"$(rooted "$patch_command_path")" >"$result_dir/patch-stdout" 2>"$result_dir/patch-stderr"
+patch_command_status=$?
+set -e
+[ "$patch_command_status" -eq 2 ]
+[ ! -s "$result_dir/patch-stdout" ]
+printf '%s\n' 'usage: synodrive-tray-patch status|apply|restore' >"$result_dir/expected-patch-stderr"
+[ "$(sha256sum "$result_dir/patch-stderr" | awk '{print $1}')" = "$(sha256sum "$result_dir/expected-patch-stderr" | awk '{print $1}')" ]
+
+[ "$(sha256sum "$unpatched_target"; /usr/bin/stat -c '%u:%g %a' "$unpatched_target")" = "$unpatched_before" ]
+[ "$(sha256sum "$patched_target"; /usr/bin/stat -c '%u:%g %a' "$patched_target")" = "$patched_before" ]
+if [ -z "$test_root" ]; then
+    [ "$(HOME=$unpatched_home "$(rooted "$patch_command_path")" status)" = unpatched ]
+    [ "$(HOME=$patched_home "$(rooted "$patch_command_path")" status)" = patched ]
+fi
+
+for path in $command_path $patch_command_path $action_helper_path $plugin_path $action_plugin_path; do
     if ! ldd -r "$(rooted "$path")" >"$result_dir/ldd" 2>&1; then
         cat "$result_dir/ldd" >&2
         exit 1
@@ -197,3 +226,5 @@ done
 IFS=$old_ifs
 assert_absent "$doc_path"
 assert_absent /opt/Synology/SynologyDrive
+[ "$(sha256sum "$unpatched_target"; /usr/bin/stat -c '%u:%g %a' "$unpatched_target")" = "$unpatched_before" ]
+[ "$(sha256sum "$patched_target"; /usr/bin/stat -c '%u:%g %a' "$patched_target")" = "$patched_before" ]

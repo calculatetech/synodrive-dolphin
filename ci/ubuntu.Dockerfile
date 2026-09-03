@@ -13,5 +13,5 @@ FROM common AS runtime
 
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        dolphin file libnautilus-extension4 \
+        dolphin file libnautilus-extension4 python3 \
     && rm -rf /var/lib/apt/lists/*

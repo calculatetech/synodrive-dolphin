@@ -70,9 +70,9 @@ run_leg() {
         /src/ci/validate-package-lifecycle "$format" "/packages/$filename"
 }
 
-run_leg 'Ubuntu 26.04 package' ubuntu.Dockerfile synodrive-dolphin-ci:ubuntu-26.04 26.04 DEB ubuntu-26.04 synodrive-dolphin_0.3.0-1_amd64.deb deb
-run_leg 'Fedora 44 package' fedora.Dockerfile synodrive-dolphin-ci:fedora-44 44 RPM fedora-44 synodrive-dolphin-0.3.0-1.x86_64.rpm rpm
+run_leg 'Ubuntu 26.04 package' ubuntu.Dockerfile synodrive-dolphin-ci:ubuntu-26.04 26.04 DEB ubuntu-26.04 synodrive-dolphin_0.4.0-1_amd64.deb deb
+run_leg 'Fedora 44 package' fedora.Dockerfile synodrive-dolphin-ci:fedora-44 44 RPM fedora-44 synodrive-dolphin-0.4.0-1.x86_64.rpm rpm
 
 printf '%s\n' \
-    "$repo_root/build/packages/ubuntu-26.04/synodrive-dolphin_0.3.0-1_amd64.deb" \
-    "$repo_root/build/packages/fedora-44/synodrive-dolphin-0.3.0-1.x86_64.rpm"
+    "$repo_root/build/packages/ubuntu-26.04/synodrive-dolphin_0.4.0-1_amd64.deb" \
+    "$repo_root/build/packages/fedora-44/synodrive-dolphin-0.4.0-1.x86_64.rpm"

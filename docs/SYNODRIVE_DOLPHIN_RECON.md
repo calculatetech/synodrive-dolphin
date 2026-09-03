@@ -142,7 +142,7 @@ The temporary install manifest for the overlay-only candidate contained:
 
 No file contains a Synology binary.
 
-The unreleased v0.3.0 candidate now adds the private action helper and the KF6 file-action plugin. The Ubuntu 26.04 DEB and Fedora 44 RPM contain the same five regular files. Native scanners generate linked-library dependencies. Explicit metadata adds Dolphin and the Nautilus extension runtime. Neither package requires or contains Synology software.
+Version 0.4.0 adds the private action helper, the KF6 file-action plugin, and the optional tray-patch command. The Ubuntu 26.04 DEB and Fedora 44 RPM contain the same six regular files. Native scanners generate linked-library dependencies. Explicit metadata adds Dolphin and the Nautilus extension runtime. Neither package requires or contains Synology software.
 
 The package command also validates each candidate in a clean target container. It uses the native package manager to install, query, verify, and remove the package. The check runs both installed binaries through the dynamic loader. It also confirms the exact file set, metadata, ownership, permissions, command result, license bytes, and complete removal.
 
@@ -195,7 +195,21 @@ Get link opened the Synology share window. That window contained the sharing opt
 
 SDD-007 succeeded for the recorded installed ABI. SDD-008 implements one user-triggered action at a time through a separate process. Dolphin owns each action process until it exits, even if the context menu closes. If the menu owner closes before a failure, the application shows one nonblocking error dialog. The Dolphin process does not load a Synology library. Automated tests use a fake private provider and do not invoke real actions on an interactive desktop.
 
-## 12. Build and install
+## 12. Tray left-click patch
+
+The official Synology archive contains Drive Client packages from 1.0.0 through 4.2.0. Static inspection covered 15 x86_64 packages. Every inspected package exports `SysTray::iconActivated(QSystemTrayIcon::ActivationReason)` and `SysTray::showStyledMenu()`.
+
+The inspected Linux activation handler ignores `QSystemTrayIcon::Trigger`, which is a normal left click. Builds from 3.5.0 through 4.2.0 use the same normalized 96-byte handler and 134-byte styled-menu function. The supported major-4 set included 4.0.0, 4.0.1, 4.0.2, 4.0.3, and 4.2.0.
+
+The patch changes seven positions in the activation handler. It replaces the Trigger terminal block with a direct relative jump to `showStyledMenu()`. It also moves MiddleClick to the old epilogue. All other activation paths remain unchanged.
+
+`synodrive-tray-patch` parses the user's ELF symbol table and validates the complete expected handler before it writes. It accepts only internal major 4, x86-64 ELF, the exact function symbols and sizes, and the recognized original or patched instruction template. Unknown and partial layouts fail without a write.
+
+The command writes a complete adjacent temporary file and atomically replaces the target. Restore applies the exact seven-byte inverse. It does not keep a full backup because a Synology update can make that backup stale.
+
+The project contains no downloaded package or Synology binary. Automated tests generate a small synthetic ELF fixture. A temporary copy of the installed official 4.0.3 executable passed status, apply, status, restore, and byte-for-byte comparison.
+
+## 13. Build and install
 
 Install the development and runtime dependencies. This does not require the Nautilus application:
 
@@ -216,5 +230,7 @@ Install for the system:
 ```bash
 sudo cmake --install build
 ```
+
+To opt in during a source installation, configure with `-DSYNODRIVE_APPLY_TRAY_PATCH_ON_INSTALL=ON`. Package installation remains passive. Package users run `synodrive-tray-patch apply` separately.
 
 Restart Dolphin after installation. Do not copy any Synology library into the install tree. The helper loads the user's installed Synology copy at run time.

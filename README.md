@@ -2,12 +2,13 @@
 
 The Synology Drive Dolphin Extension (Unofficial) adds Synology Drive status overlays and file actions to Dolphin.
 
-The project contains four components:
+The project contains five components:
 
 - `synodrive-status` reads status information through the installed Synology Drive helper.
 - `synodrive-overlay.so` supplies asynchronous overlays through the KF6 `KOverlayIconPlugin` interface.
 - `synodrive-fileitemaction.so` adds a Synology Drive submenu to Dolphin.
 - `synodrive-action` gets available actions and sends one selected action to Synology Drive.
+- `synodrive-tray-patch` manages the optional tray left-click patch.
 
 Dolphin never loads the private Synology library. Separate helper processes isolate status queries and user-selected actions.
 
@@ -45,6 +46,14 @@ Right-click one existing local file or folder. The Synology Drive submenu can co
 - Browse previous versions
 
 Synology Drive decides which actions are available. Get link opens the Synology share window, which contains a copy-link action. Browse previous versions opens the Synology file-history window.
+
+## Optional tray patch
+
+Synology Drive Client does not open its tray menu after a normal left click on Linux. Version 0.4.0 includes an optional patch for recognized internal-major-4 executables.
+
+Package and default source installation do not apply the patch. Run `synodrive-tray-patch apply` to opt in. Run `synodrive-tray-patch restore` before you remove the extension. You must restart Synology Drive Client after either change.
+
+The patch changes a private Synology executable. A client update can remove it or make the layout unsupported. The command checks the executable before each change and fails without modifying unknown layouts.
 
 ## Install and use
 

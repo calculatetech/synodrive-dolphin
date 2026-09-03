@@ -51,6 +51,7 @@ ctest --test-dir build --output-on-failure
 The build creates these delivery files:
 
 - `build/synodrive-status`
+- `build/synodrive-tray-patch`
 - `build/synodrive-action`
 - `build/synodrive-overlay.so`
 - `build/synodrive-fileitemaction.so`
@@ -65,8 +66,8 @@ Use Docker to build the official Ubuntu 26.04 DEB and Fedora 44 RPM:
 
 The command writes these files:
 
-- `build/packages/ubuntu-26.04/synodrive-dolphin_0.3.0-1_amd64.deb`
-- `build/packages/fedora-44/synodrive-dolphin-0.3.0-1.x86_64.rpm`
+- `build/packages/ubuntu-26.04/synodrive-dolphin_0.4.0-1_amd64.deb`
+- `build/packages/fedora-44/synodrive-dolphin-0.4.0-1.x86_64.rpm`
 
 The command verifies package identity, payload, dependencies, and architecture. It also installs, verifies, and removes each package in a disposable container.
 
@@ -84,16 +85,24 @@ Run only the generator that matches the package tools on the current system.
 On Ubuntu 26.04, install the DEB:
 
 ```bash
-sudo apt install ./build/packages/ubuntu-26.04/synodrive-dolphin_0.3.0-1_amd64.deb
+sudo apt install ./build/packages/ubuntu-26.04/synodrive-dolphin_0.4.0-1_amd64.deb
 ```
 
 On Fedora 44, install the RPM:
 
 ```bash
-sudo dnf install ./build/packages/fedora-44/synodrive-dolphin-0.3.0-1.x86_64.rpm
+sudo dnf install ./build/packages/fedora-44/synodrive-dolphin-0.4.0-1.x86_64.rpm
 ```
 
 Restart Dolphin after installation.
+
+Package installation does not apply the optional tray patch. To apply it, run:
+
+```bash
+synodrive-tray-patch apply
+```
+
+Restart Synology Drive Client after the command succeeds.
 
 ## Install from source
 
@@ -106,7 +115,20 @@ ctest --test-dir build --output-on-failure
 sudo cmake --install build
 ```
 
-The status command is installed at `/usr/bin/synodrive-status`. The action helper is private and is installed below `/usr/libexec/synodrive-dolphin`. CMake installs both Dolphin plugins under the Qt 6 plugin directory.
+The status and tray-patch commands are installed under `/usr/bin`. The action helper is private and is installed below `/usr/libexec/synodrive-dolphin`. CMake installs both Dolphin plugins under the Qt 6 plugin directory.
+
+To apply the tray patch during this source installation, add the option when you configure the build:
+
+```bash
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DSYNODRIVE_APPLY_TRAY_PATCH_ON_INSTALL=ON
+cmake --build build
+ctest --test-dir build --output-on-failure
+sudo cmake --install build
+```
+
+Run the configure command as the desktop user. CMake records that user's absolute home directory. The option does not support `DESTDIR` or package creation.
 
 On the supported Debian or Ubuntu system, the plugin path is:
 
@@ -137,6 +159,14 @@ A successful query prints one status name. For example:
 ```text
 synced
 ```
+
+Inspect the optional tray patch:
+
+```bash
+synodrive-tray-patch status
+```
+
+The command prints `patched` or `unpatched`. It reports an error and makes no change if the installed executable has an unknown layout.
 
 Make sure that Qt reports the plugin directory:
 
@@ -172,7 +202,17 @@ sed -n '/^\[Version\]$/,/^\[/p' /opt/Synology/SynologyDrive/INFO
 
 Internal major 4 remains supported when the private ABI checks pass. Other majors and malformed metadata fail closed.
 
+The Synology upgrade can replace the tray patch. Run `synodrive-tray-patch status` after the upgrade. Apply it again only if the command recognizes the new executable.
+
 ## Remove a package installation
+
+If you applied the tray patch, restore it before you remove this package:
+
+```bash
+synodrive-tray-patch restore
+```
+
+Restart Synology Drive Client after restoration.
 
 On Ubuntu, remove the DEB installation:
 
@@ -186,20 +226,23 @@ On Fedora, remove the RPM installation:
 sudo dnf remove synodrive-dolphin
 ```
 
-Then restart Dolphin. Removal does not change Synology Drive files, settings, or synchronization data.
+Then restart Dolphin. Package removal does not apply or restore the tray patch. It does not change Synology settings or synchronization data.
 
 Package upgrade instructions will be added after the first package release exists.
 
 ## Remove a source installation
 
-Remove the five installed files:
+If you applied the tray patch, run `synodrive-tray-patch restore` and restart Synology Drive Client first.
+
+Remove the six installed files:
 
 ```bash
 sudo rm /usr/bin/synodrive-status
+sudo rm /usr/bin/synodrive-tray-patch
 sudo rm /usr/libexec/synodrive-dolphin/synodrive-action
 sudo rm "$(qtpaths6 --plugin-dir)/kf6/overlayicon/synodrive-overlay.so"
 sudo rm "$(qtpaths6 --plugin-dir)/kf6/kfileitemaction/synodrive-fileitemaction.so"
 sudo rm /usr/share/doc/synodrive-dolphin/copyright
 ```
 
-Then restart Dolphin. Source removal does not change Synology Drive files, settings, or synchronization data.
+Then restart Dolphin. Source removal does not apply or restore the tray patch. It does not change Synology settings or synchronization data.

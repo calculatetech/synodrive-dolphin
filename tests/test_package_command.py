@@ -33,8 +33,8 @@ def assert_run_boundaries(calls, checkout):
     assert [call[0] for call in builds] == ["build"] * 4, calls
     assert [call[0] for call in runs] == ["run"] * 4, calls
     legs = [
-        (calls[0:4], "26.04", "DEB", "ubuntu-26.04", "ubuntu.Dockerfile", "synodrive-dolphin_0.3.0-1_amd64.deb"),
-        (calls[4:8], "44", "RPM", "fedora-44", "fedora.Dockerfile", "synodrive-dolphin-0.3.0-1.x86_64.rpm"),
+        (calls[0:4], "26.04", "DEB", "ubuntu-26.04", "ubuntu.Dockerfile", "synodrive-dolphin_0.4.0-1_amd64.deb"),
+        (calls[4:8], "44", "RPM", "fedora-44", "fedora.Dockerfile", "synodrive-dolphin-0.4.0-1.x86_64.rpm"),
     ]
     for leg, version, package_format, directory, dockerfile, filename in legs:
         image = f"synodrive-dolphin-ci:{directory}"
@@ -96,7 +96,7 @@ def assert_validator(validator, root):
         artifact.touch()
         environment["FAKE_FORMAT"] = package_format
         environment["FAKE_PLUGIN_ROOT"] = plugin_root
-        for variable in ["FAKE_BAD_FIELD", "FAKE_DUPLICATE", "FAKE_DUPLICATE_DEPENDENCY", "FAKE_EMPTY_DEPENDENCIES", "FAKE_EMPTY_PAYLOAD", "FAKE_EXTRA", "FAKE_MISSING", "FAKE_MISSING_DEPENDENCY", "FAKE_MISSING_PLUGIN", "FAKE_ONE_DEPENDENCY", "FAKE_ONE_RECORD", "FAKE_SYNOLOGY_DEPENDENCY"]:
+        for variable in ["FAKE_BAD_FIELD", "FAKE_DEB_SCRIPTLET", "FAKE_DUPLICATE", "FAKE_DUPLICATE_DEPENDENCY", "FAKE_EMPTY_DEPENDENCIES", "FAKE_EMPTY_PAYLOAD", "FAKE_EXTRA", "FAKE_MISSING", "FAKE_MISSING_DEPENDENCY", "FAKE_MISSING_PLUGIN", "FAKE_ONE_DEPENDENCY", "FAKE_ONE_RECORD", "FAKE_RPM_SCRIPTLET", "FAKE_RPM_TRIGGER", "FAKE_SYNOLOGY_DEPENDENCY"]:
             environment.pop(variable, None)
 
         result = subprocess.run([validator, package_format, artifact], env=environment)
@@ -162,6 +162,17 @@ def assert_validator(validator, root):
         environment["FAKE_SYNOLOGY_DEPENDENCY"] = "1"
         result = subprocess.run([validator, package_format, artifact], env=environment)
         assert result.returncode != 0, (package_format, "Synology dependency")
+        environment.pop("FAKE_SYNOLOGY_DEPENDENCY")
+
+        environment[f"FAKE_{package_format}_SCRIPTLET"] = "1"
+        result = subprocess.run([validator, package_format, artifact], env=environment)
+        assert result.returncode != 0, (package_format, "package scriptlet")
+        environment.pop(f"FAKE_{package_format}_SCRIPTLET")
+        if package_format == "RPM":
+            environment["FAKE_RPM_TRIGGER"] = "1"
+            result = subprocess.run([validator, package_format, artifact], env=environment)
+            assert result.returncode != 0, (package_format, "package trigger")
+            environment.pop("FAKE_RPM_TRIGGER")
 
 
 def main():
@@ -184,6 +195,9 @@ def main():
         shutil.copy2(source_script.with_name("ubuntu.Dockerfile"), ci)
         shutil.copy2(source_script.with_name("fedora.Dockerfile"), ci)
         shutil.copy2(source_script.parent.parent / "LICENSE", checkout)
+        tests = checkout / "tests"
+        tests.mkdir()
+        shutil.copy2(source_script.parent.parent / "tests/tray_patch_fixture.py", tests)
 
         fake_bin = root / "bin"
         fake_bin.mkdir()
@@ -289,6 +303,7 @@ args = sys.argv[1:]
 plugin_root = os.environ['FAKE_PLUGIN_ROOT']
 payload = [
     '/usr/bin/synodrive-status',
+    '/usr/bin/synodrive-tray-patch',
     '/usr/libexec/synodrive-dolphin/synodrive-action',
     f'{plugin_root}/kf6/overlayicon/synodrive-overlay.so',
     f'{plugin_root}/kf6/kfileitemaction/synodrive-fileitemaction.so',
@@ -310,11 +325,12 @@ if os.environ.get('FAKE_MISSING_PLUGIN'):
 root = pathlib.Path(os.environ.get('SYNODRIVE_LIFECYCLE_TEST_ROOT', '/'))
 state = root / '.installed'
 command_path = '/usr/bin/synodrive-status'
+patch_command_path = '/usr/bin/synodrive-tray-patch'
 action_helper_path = '/usr/libexec/synodrive-dolphin/synodrive-action'
 plugin_path = f'{plugin_root}/kf6/overlayicon/synodrive-overlay.so'
 action_plugin_path = f'{plugin_root}/kf6/kfileitemaction/synodrive-fileitemaction.so'
 copyright_path = '/usr/share/doc/synodrive-dolphin/copyright'
-lifecycle_files = [command_path, action_helper_path, plugin_path, action_plugin_path, copyright_path]
+lifecycle_files = [command_path, patch_command_path, action_helper_path, plugin_path, action_plugin_path, copyright_path]
 
 def installed_path(path):
     return root / path.lstrip('/')
@@ -323,7 +339,9 @@ def install():
     for path in lifecycle_files:
         target = installed_path(path)
         target.parent.mkdir(parents=True, exist_ok=True)
-        if path == command_path:
+        if path in [command_path, patch_command_path]:
+            usage = ('usage: synodrive-status <absolute-path>' if path == command_path
+                     else 'usage: synodrive-tray-patch status|apply|restore')
             target.write_text('''#!/bin/sh
 [ -n "${FAKE_CLI_STDOUT-}" ] && printf '%s' "$FAKE_CLI_STDOUT"
 if [ -n "${FAKE_CLI_STDERR+x}" ]; then
@@ -333,6 +351,9 @@ else
 fi
 exit "${FAKE_CLI_STATUS-2}"
 ''')
+            target.write_text(target.read_text().replace(
+                'usage: synodrive-status <absolute-path>', usage,
+            ))
             target.chmod(0o755)
         elif path == copyright_path:
             shutil.copyfile(pathlib.Path(os.environ['FAKE_SOURCE']) / 'LICENSE', target)
@@ -398,7 +419,7 @@ elif tool == 'dpkg-deb':
         dependencies = 'dolphin'
     fields = {
         'Package': 'synodrive-dolphin',
-        'Version': '0.3.0-1',
+        'Version': '0.4.0-1',
         'Architecture': 'amd64',
         'Maintainer': 'Michael Beutler <mikebeutler84@gmail.com>',
         'Homepage': 'https://github.com/calculatetech/synodrive-dolphin',
@@ -421,6 +442,12 @@ elif tool == 'dpkg-deb':
     elif args[0] == '-c':
         for path in payload:
             print(f'-rw-r--r-- root/root 1 2026-09-01 00:00 .{path}')
+    elif args[0] == '-e':
+        control = pathlib.Path(args[2])
+        control.mkdir(parents=True, exist_ok=True)
+        (control / 'control').touch()
+        if os.environ.get('FAKE_DEB_SCRIPTLET'):
+            (control / 'postinst').touch()
 elif tool == 'dpkg-query':
     if args[:1] == ['-L']:
         if not state.exists():
@@ -432,7 +459,7 @@ elif tool == 'dpkg-query':
         if not state.exists() and args[-1:] == ['synodrive-dolphin']:
             sys.exit(1)
         fields = {
-            '${binary:Package}': 'synodrive-dolphin', '${Version}': '0.3.0-1',
+            '${binary:Package}': 'synodrive-dolphin', '${Version}': '0.4.0-1',
             '${Architecture}': 'amd64',
             '${Maintainer}': 'Michael Beutler <mikebeutler84@gmail.com>',
             '${Homepage}': 'https://github.com/calculatetech/synodrive-dolphin',
@@ -475,7 +502,7 @@ elif tool == 'rpm':
     if os.environ.get('FAKE_ONE_DEPENDENCY'):
         dependencies = dependencies[:1]
     fields = {
-        '%{NAME}': 'synodrive-dolphin', '%{VERSION}': '0.3.0', '%{RELEASE}': '1',
+        '%{NAME}': 'synodrive-dolphin', '%{VERSION}': '0.4.0', '%{RELEASE}': '1',
         '%{ARCH}': 'x86_64', '%{SUMMARY}': 'Synology Drive Dolphin Extension (Unofficial)',
         '%{LICENSE}': 'MIT', '%{URL}': 'https://github.com/calculatetech/synodrive-dolphin',
         '%{VENDOR}': 'calculatetech',
@@ -493,6 +520,12 @@ elif tool == 'rpm':
             print(f'{path} 1 0 digest 0100644 root root 0 0 0 -')
     elif args[:2] == ['-qp', '--requires']:
         print('\\n'.join(dependencies))
+    elif args[:2] == ['-qp', '--scripts']:
+        if os.environ.get('FAKE_RPM_SCRIPTLET'):
+            print('postinstall scriptlet')
+    elif args[:2] == ['-qp', '--triggers']:
+        if os.environ.get('FAKE_RPM_TRIGGER'):
+            print('trigger scriptlet')
     elif args[:2] == ['-q', '--qf']:
         if not state.exists():
             sys.exit(1)
@@ -526,7 +559,7 @@ elif tool == 'stat':
     path = args[-1]
     logical = '/' + str(pathlib.Path(path).relative_to(root))
     plugin_mode = '644' if os.environ['FAKE_FORMAT'] == 'DEB' else '755'
-    modes = {command_path: '755', action_helper_path: '755', plugin_path: plugin_mode,
+    modes = {command_path: '755', patch_command_path: '755', action_helper_path: '755', plugin_path: plugin_mode,
              action_plugin_path: plugin_mode, copyright_path: '644'}
     result = f'root:root {modes[logical]}'
     if os.environ.get('FAKE_BAD_STAT_PATH') == logical:
@@ -565,8 +598,8 @@ elif tool == 'ldconfig':
         assert all("fedora-44" in " ".join(call) for call in calls[4:]), calls
         assert_run_boundaries(calls, checkout)
         expected_paths = [
-            str(checkout / "build/packages/ubuntu-26.04/synodrive-dolphin_0.3.0-1_amd64.deb"),
-            str(checkout / "build/packages/fedora-44/synodrive-dolphin-0.3.0-1.x86_64.rpm"),
+            str(checkout / "build/packages/ubuntu-26.04/synodrive-dolphin_0.4.0-1_amd64.deb"),
+            str(checkout / "build/packages/fedora-44/synodrive-dolphin-0.4.0-1.x86_64.rpm"),
         ]
         lines = success.stdout.rstrip().splitlines()
         assert lines[-2:] == expected_paths, success.stdout
@@ -661,6 +694,14 @@ elif tool == 'ldconfig':
             assert_composed_reject(
                 package_format, "archive one dependency", FAKE_ONE_DEPENDENCY="1",
             )
+            assert_composed_reject(
+                package_format, "archive package scriptlet",
+                **{f"FAKE_{package_format}_SCRIPTLET": "1"},
+            )
+            if package_format == "RPM":
+                assert_composed_reject(
+                    package_format, "archive package trigger", FAKE_RPM_TRIGGER="1",
+                )
             (root / "docker.log").unlink(missing_ok=True)
             duplicate, duplicate_calls = run(
                 script, root,
@@ -685,6 +726,7 @@ elif tool == 'ldconfig':
             plugin_path = plugin_paths[package_format]
             paths = [
                 "/usr/bin/synodrive-status",
+                "/usr/bin/synodrive-tray-patch",
                 "/usr/libexec/synodrive-dolphin/synodrive-action",
                 plugin_path,
                 plugin_path.replace("/overlayicon/synodrive-overlay.so", "/kfileitemaction/synodrive-fileitemaction.so"),
@@ -704,7 +746,7 @@ elif tool == 'ldconfig':
                 package_format, "installed symlink", FAKE_LIFECYCLE_SYMLINK=plugin_path,
             )
             for path in paths:
-                mode = "755" if path in ["/usr/bin/synodrive-status", "/usr/libexec/synodrive-dolphin/synodrive-action"] else "644"
+                mode = "755" if path in ["/usr/bin/synodrive-status", "/usr/bin/synodrive-tray-patch", "/usr/libexec/synodrive-dolphin/synodrive-action"] else "644"
                 if package_format == "RPM" and "/kf6/" in path:
                     mode = "755"
                 for value in [f"user:root {mode}", f"root:group {mode}", "root:root 600"]:
@@ -712,7 +754,7 @@ elif tool == 'ldconfig':
                         package_format, f"installed stat {path} {value}",
                         FAKE_BAD_STAT_PATH=path, FAKE_BAD_STAT_VALUE=value,
                     )
-            for path in paths[:4]:
+            for path in paths[:5]:
                 assert_composed_reject(
                     package_format, f"installed file type {path}", FAKE_BAD_FILE_PATH=path,
                 )

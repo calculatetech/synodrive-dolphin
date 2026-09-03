@@ -1,6 +1,6 @@
 # Release notes
 
-## 0.3.0 (unreleased)
+## 0.4.0
 
 - Add native CPack DEB and RPM generation.
 - Add one command to build Ubuntu 26.04 and Fedora 44 x86_64 package candidates.
@@ -10,6 +10,9 @@
 - Add a native Synology Drive submenu for one local file or folder.
 - Add Get link and Browse previous versions when Synology Drive permits them.
 - Keep Synology libraries in a separate action-helper process.
+- Add an opt-in command for the Synology Drive tray left-click patch.
+- Add status, idempotent apply, and exact restore operations for recognized major-4 executables.
+- Add an optional source-install flag. Keep DEB and RPM installation passive.
 
 ## 0.2.0
 

@@ -19,8 +19,6 @@ Ubuntu 26.04 LTS and Fedora KDE 44 are the automated package targets. The RPM us
 
 ## Active
 
-No task is active.
-
 ## Planned next
 
 ## Planned later
@@ -76,11 +74,18 @@ The project does not plan these items for v1.0:
 - Selective-sync, lock, unlock, pause, or resume menu actions
 - Static service menus that appear for unrelated files
 - Loading Synology libraries directly into Dolphin
-- A new diagnostics command
+- A general diagnostics command. The dedicated SDD-015 patch manager is an explicit exception.
 
 Use `synodrive-status <absolute-path>` for command-line troubleshooting.
 
 ## Completed
+
+- **SDD-015 — Add an opt-in tray left-click patch.**
+  - Installed a user-invoked command that can inspect, apply, and restore the patch.
+  - Made a normal tray-icon left click call Synology's styled menu function.
+  - Kept source and package installation passive unless the user selects the source-install option.
+  - Supported only recognized x86_64 internal-major-4 client binaries.
+  - Completed the live field test before publication.
 
 - **SDD-014 — Normalize local Places paths for overlays.**
   - Removed leading `/..` segments only from the path sent to Synology Drive.

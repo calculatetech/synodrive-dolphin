@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 project(synodrive-dolphin
-    VERSION 0.3.0
+    VERSION 0.4.0
     DESCRIPTION "Synology Drive Dolphin Extension (Unofficial)"
     HOMEPAGE_URL "https://github.com/calculatetech/synodrive-dolphin"
     LANGUAGES CXX
@@ -9,6 +9,23 @@ project(synodrive-dolphin
 include(CTest)
 include(GNUInstallDirs)
 set(CMAKE_AUTOMOC ON)
+option(SYNODRIVE_APPLY_TRAY_PATCH_ON_INSTALL
+    "Apply the Synology Drive tray patch during source installation"
+    OFF
+)
+if(SYNODRIVE_APPLY_TRAY_PATCH_ON_INSTALL)
+    set(SYNODRIVE_TRAY_PATCH_INSTALL_HOME "$ENV{HOME}")
+    if(NOT SYNODRIVE_TRAY_PATCH_INSTALL_HOME
+       OR NOT IS_ABSOLUTE "${SYNODRIVE_TRAY_PATCH_INSTALL_HOME}")
+        message(FATAL_ERROR
+            "SYNODRIVE_APPLY_TRAY_PATCH_ON_INSTALL requires a nonempty absolute HOME"
+        )
+    endif()
+    set(SYNODRIVE_TRAY_PATCH_HOME_DELIMITER "=")
+    while(SYNODRIVE_TRAY_PATCH_INSTALL_HOME MATCHES "]${SYNODRIVE_TRAY_PATCH_HOME_DELIMITER}]")
+        string(APPEND SYNODRIVE_TRAY_PATCH_HOME_DELIMITER "=")
+    endwhile()
+endif()
 
 find_package(Qt6 REQUIRED COMPONENTS Core Widgets)
 find_package(KF6CoreAddons REQUIRED)
@@ -29,6 +46,13 @@ target_compile_features(synodrive-status PRIVATE cxx_std_17)
 target_link_libraries(synodrive-status PRIVATE dl)
 
 install(TARGETS synodrive-status RUNTIME DESTINATION bin)
+
+add_executable(synodrive-tray-patch
+    src/synodrive-tray-patch.cpp
+    src/synodrive_compatibility.cpp
+)
+target_compile_features(synodrive-tray-patch PRIVATE cxx_std_17)
+install(TARGETS synodrive-tray-patch RUNTIME DESTINATION bin)
 
 add_executable(synodrive-action
     src/synodrive-action.cpp
@@ -80,6 +104,28 @@ install(FILES LICENSE
     RENAME copyright
 )
 
+if(SYNODRIVE_APPLY_TRAY_PATCH_ON_INSTALL)
+    install(CODE "
+        set(synodrive_tray_patch_home
+            [${SYNODRIVE_TRAY_PATCH_HOME_DELIMITER}[${SYNODRIVE_TRAY_PATCH_INSTALL_HOME}]${SYNODRIVE_TRAY_PATCH_HOME_DELIMITER}]
+        )
+        if(NOT \"\$ENV{DESTDIR}\" STREQUAL \"\")
+            message(FATAL_ERROR
+                \"SYNODRIVE_APPLY_TRAY_PATCH_ON_INSTALL cannot be used with DESTDIR\"
+            )
+        endif()
+        execute_process(
+            COMMAND \"${CMAKE_COMMAND}\" -E env
+                    \"HOME=\${synodrive_tray_patch_home}\"
+                    \"$<TARGET_FILE:synodrive-tray-patch>\" apply
+            RESULT_VARIABLE synodrive_tray_patch_result
+        )
+        if(NOT synodrive_tray_patch_result EQUAL 0)
+            message(FATAL_ERROR \"Synology Drive tray patch failed\")
+        endif()
+    ")
+endif()
+
 if(BUILD_TESTING)
     find_package(Python3 REQUIRED COMPONENTS Interpreter)
     find_package(Qt6 REQUIRED COMPONENTS Test)
@@ -108,6 +154,21 @@ if(BUILD_TESTING)
                 $<TARGET_FILE:synodrive-status>
                 $<TARGET_FILE:fake-synodrive-plugin>
                 $<TARGET_FILE:fake-synodrive-missing-symbol>
+    )
+
+    add_executable(synodrive-tray-patch-test
+        src/synodrive-tray-patch.cpp
+        src/synodrive_compatibility.cpp
+    )
+    target_compile_features(synodrive-tray-patch-test PRIVATE cxx_std_17)
+    target_compile_definitions(synodrive-tray-patch-test PRIVATE SYNODRIVE_TRAY_PATCH_TESTING)
+    add_test(
+        NAME tray-patch
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/test_tray_patch.py
+                $<TARGET_FILE:synodrive-tray-patch>
+                $<TARGET_FILE:synodrive-tray-patch-test>
+                ${CMAKE_SOURCE_DIR}
+                ${CMAKE_BINARY_DIR}
     )
 
     add_executable(fake-status-helper tests/fake_status_helper.cpp)

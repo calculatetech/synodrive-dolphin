@@ -26,6 +26,34 @@ Synology Drive owns both windows. Some installed versions do not show a close ac
 
 The submenu is absent when Synology Drive returns no supported action. It is also absent for remote URLs, multiple selections, missing paths, incompatible client versions, and slow helper responses.
 
+## Use the optional tray patch
+
+Inspect the current state:
+
+```bash
+synodrive-tray-patch status
+```
+
+The command prints `patched` or `unpatched` for a recognized executable.
+
+Apply the patch only if you want a normal tray-icon left click to open Synology's styled menu:
+
+```bash
+synodrive-tray-patch apply
+```
+
+Restart Synology Drive Client after the command succeeds. The extension does not stop or restart it.
+
+Restore the original tray behavior with:
+
+```bash
+synodrive-tray-patch restore
+```
+
+Restart Synology Drive Client again. Repeated `apply` and `restore` commands are safe no-ops when the requested file state already exists.
+
+The command accepts only recognized x86_64 internal-major-4 executable layouts. It makes no change if the file is missing, incomplete, symbolic, or unknown. A Synology update can remove the patch. Run `status` before you apply it again.
+
 ## Query one path
 
 Use `synodrive-status` to inspect one local path:
@@ -114,8 +142,18 @@ This project uses a private Synology interface. Do not bypass the internal-major
 
 Internal client major 4 remains supported when all private ABI checks pass. A different internal major requires a new compatibility review.
 
+If you used the optional tray patch, run:
+
+```bash
+synodrive-tray-patch status
+```
+
+An `unpatched` result means that you can apply the patch again. An error means that the new executable layout is not supported.
+
 ## Privacy and file safety
 
 The extension sends local path names only to the locally installed Synology helper. It does not call a public NAS or Internet API.
 
 The project does not modify Synology databases or synchronization data. SQLite can open its WAL and shared-memory coordination files during a query.
+
+The tray command modifies `cloud-drive-ui` only after an explicit `apply` or source-install choice. Package installation and removal never modify that file.
