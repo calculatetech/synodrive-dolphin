@@ -9,7 +9,7 @@ import sys
 import tempfile
 
 
-def run(script, root, fail_image=None, arguments=None, overrides=None):
+def run(script, root, fail_image=None, fail_stage=None, arguments=None, overrides=None):
     log = root / "docker.log"
     environment = os.environ.copy()
     environment["PATH"] = f"{root / 'bin'}:{environment['PATH']}"
@@ -17,6 +17,8 @@ def run(script, root, fail_image=None, arguments=None, overrides=None):
     environment["FAKE_PLUGIN_ROOT"] = "/usr/lib/x86_64-linux-gnu/qt6/plugins"
     if fail_image:
         environment["FAKE_DOCKER_FAIL_IMAGE"] = fail_image
+    if fail_stage:
+        environment["FAKE_DOCKER_FAIL_STAGE"] = fail_stage
     if overrides:
         environment.update(overrides)
     command = [str(script)]
@@ -28,11 +30,12 @@ def run(script, root, fail_image=None, arguments=None, overrides=None):
 
 
 def assert_run_boundaries(calls, checkout, baseline=None):
-    leg_size = 5 if baseline else 4
-    assert len(calls) == leg_size * 2, calls
+    debian_size = 6 if baseline else 4
+    fedora_size = 5 if baseline else 4
+    assert len(calls) == debian_size + fedora_size, calls
     legs = [
-        (calls[0:leg_size], "26.04", "DEB", "ubuntu-26.04", "ubuntu.Dockerfile", "synodrive-dolphin_1.0.0-1_amd64.deb", "synodrive-dolphin_0.4.0-1_amd64.deb"),
-        (calls[leg_size:leg_size * 2], "44", "RPM", "fedora-44", "fedora.Dockerfile", "synodrive-dolphin-1.0.0-1.x86_64.rpm", "synodrive-dolphin-0.4.0-1.x86_64.rpm"),
+        (calls[:debian_size], "13", "DEB", "debian-13", "debian.Dockerfile", "synodrive-dolphin_1.0.1-1_amd64.deb", "synodrive-dolphin_1.0.0-1_amd64.deb"),
+        (calls[debian_size:], "44", "RPM", "fedora-44", "fedora.Dockerfile", "synodrive-dolphin-1.0.1-1.x86_64.rpm", "synodrive-dolphin-1.0.0-1.x86_64.rpm"),
     ]
     for leg, version, package_format, directory, dockerfile, filename, baseline_filename in legs:
         image = f"synodrive-dolphin-ci:{directory}"
@@ -77,7 +80,16 @@ def assert_run_boundaries(calls, checkout, baseline=None):
         if baseline:
             expected_upgrade = expected_runtime[:9] + [
                 "--mount", f"type=bind,source={baseline},target=/baseline,readonly",
-            ] + expected_runtime[9:] + [f"/baseline/{baseline_filename}"]
+            ] + expected_runtime[9:]
+            if package_format == "DEB":
+                ubuntu_image = "synodrive-dolphin-ci:ubuntu-26.04-runtime"
+                assert upgrade_runs[0] == [
+                    "build", "--file", f"{checkout}/ci/ubuntu.Dockerfile", "--target", "runtime",
+                    "--tag", ubuntu_image, f"{checkout}/ci",
+                ], upgrade_runs
+                expected_upgrade[expected_upgrade.index(runtime_image)] = ubuntu_image
+                upgrade_runs = upgrade_runs[1:]
+            expected_upgrade.append(f"/baseline/{baseline_filename}")
             assert upgrade_runs == [expected_upgrade], upgrade_runs
         else:
             assert upgrade_runs == [], upgrade_runs
@@ -184,8 +196,8 @@ def assert_validator(validator, root):
 def main():
     source_script = pathlib.Path(sys.argv[1]).resolve()
     source_text = source_script.read_text()
-    assert "aea6f49a7b67f8fe49124856729d4b8e21654ffd309b14812db446cb96cc37ab" in source_text
-    assert "72c495ed43224e82139ee5b02fd20b6aff8df4bcbb648b4c54d6ca105e4b4cef" in source_text
+    assert "b080ca138ffbfb5383beae9008e3aadb2f0ee6c56e2b3b46612bdf951d75fe0a" in source_text
+    assert "b804cb8a29f9d0ddf5acdc442db3d07f3d302922456c7cb3ac7a336602193f3e" in source_text
     cmake = source_script.parent.parent / "CMakeLists.txt"
     cmake_text = cmake.read_text()
     assert "set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)" in cmake_text, cmake
@@ -201,6 +213,7 @@ def main():
         shutil.copy2(source_script, script)
         shutil.copy2(source_script.with_name("validate-package"), validator)
         shutil.copy2(source_script.with_name("validate-package-lifecycle"), lifecycle)
+        shutil.copy2(source_script.with_name("debian.Dockerfile"), ci)
         shutil.copy2(source_script.with_name("ubuntu.Dockerfile"), ci)
         shutil.copy2(source_script.with_name("fedora.Dockerfile"), ci)
         shutil.copy2(source_script.parent.parent / "LICENSE", checkout)
@@ -218,14 +231,16 @@ args = sys.argv[1:]
 with open(os.environ['FAKE_DOCKER_LOG'], 'a') as log:
     print(json.dumps(args), file=log)
 image = next((arg for arg in args if arg.startswith('synodrive-dolphin-ci:')), '')
-if args[0] == 'run' and image == os.environ.get('FAKE_DOCKER_FAIL_IMAGE'):
+package_format = 'DEB' if 'debian-13' in image or 'ubuntu-26.04' in image else 'RPM'
+baseline_run = any('target=/baseline' in arg for arg in args)
+stage = f'{package_format}-upgrade' if baseline_run else f'{package_format}-clean' if image.endswith('-runtime') else f'{package_format}-build'
+if args[0] == 'run' and (image == os.environ.get('FAKE_DOCKER_FAIL_IMAGE') or stage == os.environ.get('FAKE_DOCKER_FAIL_STAGE')):
     sys.exit(7)
 if args[0] == 'run':
     source_mount = next(arg for arg in args if 'target=/src' in arg)
     source = pathlib.Path(source_mount.split('source=', 1)[1].split(',target=', 1)[0])
     output_mount = next(arg for arg in args if 'target=/packages' in arg)
     output = pathlib.Path(output_mount.split('source=', 1)[1].split(',target=', 1)[0])
-    package_format = 'DEB' if 'ubuntu-26.04' in image else 'RPM'
     environment = os.environ.copy()
     for index, value in enumerate(args):
         if value == '--env':
@@ -380,7 +395,7 @@ exit "${FAKE_CLI_STATUS-2}"
         target = installed_path(symlink)
         target.unlink()
         target.symlink_to('/dev/null')
-    state.write_text('0.4.0' if '0.4.0' in package_path else '1.0.0')
+    state.write_text('1.0.0' if '1.0.0' in package_path else '1.0.1')
 
 def inventory():
     files = lifecycle_files.copy()
@@ -433,7 +448,7 @@ elif tool == 'dpkg-deb':
         dependencies = 'dolphin'
     fields = {
         'Package': 'synodrive-dolphin',
-        'Version': '1.0.0-1',
+        'Version': '1.0.1-1',
         'Architecture': 'amd64',
         'Maintainer': 'Michael Beutler <mikebeutler84@gmail.com>',
         'Homepage': 'https://github.com/calculatetech/synodrive-dolphin',
@@ -516,7 +531,7 @@ elif tool == 'rpm':
     if os.environ.get('FAKE_ONE_DEPENDENCY'):
         dependencies = dependencies[:1]
     fields = {
-        '%{NAME}': 'synodrive-dolphin', '%{VERSION}': '1.0.0', '%{RELEASE}': '1',
+        '%{NAME}': 'synodrive-dolphin', '%{VERSION}': '1.0.1', '%{RELEASE}': '1',
         '%{ARCH}': 'x86_64', '%{SUMMARY}': 'Synology Drive Dolphin Extension (Unofficial)',
         '%{LICENSE}': 'MIT', '%{URL}': 'https://github.com/calculatetech/synodrive-dolphin',
         '%{VENDOR}': 'calculatetech',
@@ -597,8 +612,11 @@ elif tool == 'ldconfig':
 elif tool == 'sha256sum':
     if args == ['--check', '--status']:
         records = [line.split('  ', 1) for line in sys.stdin.read().splitlines()]
-        if os.environ.get('FAKE_BAD_BASELINE_SHA') or any(
-            len(record) != 2 or not pathlib.Path(record[1]).is_file() for record in records
+        bad_baseline = os.environ.get('FAKE_BAD_BASELINE')
+        if any(
+            len(record) != 2 or not pathlib.Path(record[1]).is_file() or
+            bad_baseline and pathlib.Path(record[1]).name == bad_baseline
+            for record in records
         ):
             sys.exit(1)
     else:
@@ -619,12 +637,12 @@ elif tool == 'sha256sum':
         success, calls = run(script, root)
         assert success.returncode == 0, success
         assert [call[0] for call in calls] == ["build", "run"] * 4, calls
-        assert all("ubuntu-26.04" in " ".join(call) for call in calls[:4]), calls
+        assert all("debian-13" in " ".join(call) for call in calls[:4]), calls
         assert all("fedora-44" in " ".join(call) for call in calls[4:]), calls
         assert_run_boundaries(calls, checkout)
         expected_paths = [
-            str(checkout / "build/packages/ubuntu-26.04/synodrive-dolphin_1.0.0-1_amd64.deb"),
-            str(checkout / "build/packages/fedora-44/synodrive-dolphin-1.0.0-1.x86_64.rpm"),
+            str(checkout / "build/packages/debian-13/synodrive-dolphin_1.0.1-1_amd64.deb"),
+            str(checkout / "build/packages/fedora-44/synodrive-dolphin-1.0.1-1.x86_64.rpm"),
         ]
         lines = success.stdout.rstrip().splitlines()
         assert lines[-2:] == expected_paths, success.stdout
@@ -638,24 +656,37 @@ elif tool == 'sha256sum':
 
         baseline = root / "baseline"
         baseline.mkdir()
-        (baseline / "synodrive-dolphin_0.4.0-1_amd64.deb").touch()
-        (baseline / "synodrive-dolphin-0.4.0-1.x86_64.rpm").touch()
+        baseline_names = [
+            "synodrive-dolphin_1.0.0-1_amd64.deb",
+            "synodrive-dolphin-1.0.0-1.x86_64.rpm",
+        ]
+        for name in baseline_names:
+            (baseline / name).touch()
         (root / "docker.log").unlink(missing_ok=True)
         upgraded, calls = run(
             script, root, arguments=["--upgrade-from", str(baseline)],
         )
         assert upgraded.returncode == 0, upgraded
         assert_run_boundaries(calls, checkout, baseline)
-        assert any(call[-1] == "/baseline/synodrive-dolphin_0.4.0-1_amd64.deb" for call in calls), calls
-        assert any(call[-1] == "/baseline/synodrive-dolphin-0.4.0-1.x86_64.rpm" for call in calls), calls
+        assert any(call[-1] == "/baseline/synodrive-dolphin_1.0.0-1_amd64.deb" for call in calls), calls
+        assert any(call[-1] == "/baseline/synodrive-dolphin-1.0.0-1.x86_64.rpm" for call in calls), calls
 
-        (root / "docker.log").unlink()
-        bad_digest, calls = run(
-            script, root, arguments=["--upgrade-from", str(baseline)],
-            overrides={"FAKE_BAD_BASELINE_SHA": "1"},
-        )
-        assert bad_digest.returncode != 0, bad_digest
-        assert calls == [], calls
+        for name in baseline_names:
+            path = baseline / name
+            path.unlink()
+            (root / "docker.log").unlink(missing_ok=True)
+            missing, calls = run(script, root, arguments=["--upgrade-from", str(baseline)])
+            assert missing.returncode != 0, (name, missing)
+            assert calls == [], calls
+            path.touch()
+
+            (root / "docker.log").unlink(missing_ok=True)
+            altered, calls = run(
+                script, root, arguments=["--upgrade-from", str(baseline)],
+                overrides={"FAKE_BAD_BASELINE": name},
+            )
+            assert altered.returncode != 0, (name, altered)
+            assert calls == [], calls
 
         unguarded = subprocess.run(
             [lifecycle, "DEB", root / "candidate.deb"], text=True, capture_output=True,
@@ -860,32 +891,51 @@ elif tool == 'sha256sum':
             assert_composed_reject(package_format, "retained documentation directory", FAKE_RETAIN_DOC="1")
 
         (root / "docker.log").unlink()
-        first_failure, calls = run(script, root, fail_image="synodrive-dolphin-ci:ubuntu-26.04")
+        first_failure, calls = run(script, root, fail_image="synodrive-dolphin-ci:debian-13")
         assert first_failure.returncode == 7, first_failure
         assert len(calls) == 2 and all("fedora-44" not in " ".join(call) for call in calls), calls
-        assert "build/packages/ubuntu-26.04/" not in first_failure.stdout, first_failure.stdout
+        assert "build/packages/debian-13/" not in first_failure.stdout, first_failure.stdout
 
         (root / "docker.log").unlink()
         later_failure, calls = run(script, root, fail_image="synodrive-dolphin-ci:fedora-44")
         assert later_failure.returncode == 7, later_failure
         assert [call[0] for call in calls] == ["build", "run"] * 3, calls
         assert sum("fedora-44" in " ".join(call) and call[0] == "run" for call in calls) == 1, calls
-        assert "build/packages/ubuntu-26.04/" not in later_failure.stdout, later_failure.stdout
+        assert "build/packages/debian-13/" not in later_failure.stdout, later_failure.stdout
 
         (root / "docker.log").unlink()
         first_lifecycle_failure, calls = run(
-            script, root, fail_image="synodrive-dolphin-ci:ubuntu-26.04-runtime",
+            script, root, fail_stage="DEB-clean",
         )
         assert first_lifecycle_failure.returncode == 7, first_lifecycle_failure
         assert len(calls) == 4 and all("fedora-44" not in " ".join(call) for call in calls), calls
+        assert all(path not in first_lifecycle_failure.stdout for path in expected_paths)
 
         (root / "docker.log").unlink()
         later_lifecycle_failure, calls = run(
-            script, root, fail_image="synodrive-dolphin-ci:fedora-44-runtime",
+            script, root, fail_stage="RPM-clean",
         )
         assert later_lifecycle_failure.returncode == 7, later_lifecycle_failure
         assert len(calls) == 8, calls
         assert all(path not in later_lifecycle_failure.stdout for path in expected_paths)
+
+        (root / "docker.log").unlink()
+        deb_upgrade_failure, calls = run(
+            script, root, fail_stage="DEB-upgrade",
+            arguments=["--upgrade-from", str(baseline)],
+        )
+        assert deb_upgrade_failure.returncode == 7, deb_upgrade_failure
+        assert len(calls) == 6 and all("fedora-44" not in " ".join(call) for call in calls), calls
+        assert all(path not in deb_upgrade_failure.stdout for path in expected_paths)
+
+        (root / "docker.log").unlink()
+        rpm_upgrade_failure, calls = run(
+            script, root, fail_stage="RPM-upgrade",
+            arguments=["--upgrade-from", str(baseline)],
+        )
+        assert rpm_upgrade_failure.returncode == 7, rpm_upgrade_failure
+        assert len(calls) == 11, calls
+        assert all(path not in rpm_upgrade_failure.stdout for path in expected_paths)
 
 
 if __name__ == "__main__":

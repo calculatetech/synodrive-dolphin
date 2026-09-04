@@ -15,7 +15,7 @@ Status legend:
 
 The v1.0 target supports x86_64 systems, KDE 6, and Synology Drive 8.x. GitHub releases will provide DEB and RPM packages.
 
-Ubuntu 26.04 LTS and Fedora KDE 44 are the automated package targets. The RPM uses a community-packaged Synology Drive client.
+Debian 13 and Fedora KDE 44 are the automated package targets. Ubuntu 26.04 LTS remains an upgrade-compatibility target for the DEB. The RPM uses a community-packaged Synology Drive client.
 
 ## Active
 
@@ -57,6 +57,12 @@ The project does not plan these items for v1.0:
 Use `synodrive-status <absolute-path>` for command-line troubleshooting.
 
 ## Completed
+
+- **SDD-016 — Build the DEB on Debian 13.**
+  - Built version 1.0.1 on Debian 13 with a generated Qt Core 6.8.2 dependency floor.
+  - Passed clean package lifecycles on Debian 13 and Fedora 44.
+  - Passed upgrades from published version 1.0.0 on Ubuntu 26.04 and Fedora 44.
+  - Published version 1.0.1 as a Debian 13-compatible DEB and a Fedora 44 RPM.
 
 - **SDD-010 — Add protected GitHub CI for v1.0.**
   - Protected `main` with pull requests, resolved conversations, strict checks, and no bypass actor.

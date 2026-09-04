@@ -21,7 +21,7 @@ expected_payload=$(printf '%s\n' \
 case $format in
     DEB)
         test "$(dpkg-deb -f "$artifact" Package)" = synodrive-dolphin
-        test "$(dpkg-deb -f "$artifact" Version)" = 1.0.0-1
+        test "$(dpkg-deb -f "$artifact" Version)" = 1.0.1-1
         test "$(dpkg-deb -f "$artifact" Architecture)" = amd64
         test "$(dpkg-deb -f "$artifact" Maintainer)" = "Michael Beutler <mikebeutler84@gmail.com>"
         test "$(dpkg-deb -f "$artifact" Homepage)" = https://github.com/calculatetech/synodrive-dolphin
@@ -48,7 +48,7 @@ case $format in
         ;;
     RPM)
         test "$(rpm -qp --qf '%{NAME}' "$artifact")" = synodrive-dolphin
-        test "$(rpm -qp --qf '%{VERSION}' "$artifact")" = 1.0.0
+        test "$(rpm -qp --qf '%{VERSION}' "$artifact")" = 1.0.1
         test "$(rpm -qp --qf '%{RELEASE}' "$artifact")" = 1
         test "$(rpm -qp --qf '%{ARCH}' "$artifact")" = x86_64
         test "$(rpm -qp --qf '%{SUMMARY}' "$artifact")" = "Synology Drive Dolphin Extension (Unofficial)"

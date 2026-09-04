@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 project(synodrive-dolphin
-    VERSION 1.0.0
+    VERSION 1.0.1
     DESCRIPTION "Synology Drive Dolphin Extension (Unofficial)"
     HOMEPAGE_URL "https://github.com/calculatetech/synodrive-dolphin"
     LANGUAGES CXX

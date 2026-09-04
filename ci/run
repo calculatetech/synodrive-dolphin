@@ -33,5 +33,5 @@ run_leg() {
         '
 }
 
-run_leg 'Ubuntu 26.04' ubuntu.Dockerfile synodrive-dolphin-ci:ubuntu-26.04 26.04
+run_leg 'Debian 13' debian.Dockerfile synodrive-dolphin-ci:debian-13 13
 run_leg 'Fedora 44' fedora.Dockerfile synodrive-dolphin-ci:fedora-44 44

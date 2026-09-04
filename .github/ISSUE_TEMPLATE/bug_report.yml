@@ -10,6 +10,7 @@ body:
     attributes:
       label: Linux distribution
       options:
+        - Debian 13
         - Ubuntu 26.04
         - Fedora 44
         - Other
@@ -29,7 +30,7 @@ body:
     id: extension
     attributes:
       label: Extension version
-      placeholder: 1.0.0
+      placeholder: 1.0.0 or 1.0.1
     validations:
       required: true
   - type: input

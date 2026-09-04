@@ -146,7 +146,13 @@ Version 0.4.0 adds the private action helper, the KF6 file-action plugin, and th
 
 Version 1.0.0 promotes the same runtime and six-file package payload. It adds a package-upgrade gate, complete release documentation, protected pull requests, and review-gated GitHub CI.
 
-The package command also validates each candidate in a clean target container. It uses the native package manager to install, query, verify, and remove the package. The check runs both installed binaries through the dynamic loader. It also confirms the exact file set, metadata, ownership, permissions, command result, license bytes, and complete removal.
+Version 1.0.1 moves the DEB build and clean lifecycle to Debian 13. This change lowers the generated Qt Core dependency from 6.10.2 to 6.8.2.
+
+Ubuntu 26.04 remains the DEB upgrade target for published version 1.0.0 installations. Fedora 44 remains the RPM build, clean-lifecycle, and upgrade target.
+
+Version 1.0.1 does not change the runtime or package payload.
+
+The package command validates each candidate in a clean target container. It uses the native package manager to install, query, verify, and remove the package. The check runs both installed binaries through the dynamic loader. It also confirms the exact file set, metadata, ownership, permissions, command result, license bytes, and complete removal.
 
 ## 11. Context-menu feasibility
 

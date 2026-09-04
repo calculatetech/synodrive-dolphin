@@ -1,5 +1,12 @@
 # Release notes
 
+## 1.0.1
+
+- Build the DEB on Debian 13 to use its Qt 6.8.2 compatibility floor.
+- Validate clean package lifecycles on Debian 13 and Fedora 44.
+- Validate upgrades from the published version 1.0.0 DEB on Ubuntu 26.04 and RPM on Fedora 44.
+- Keep the version 1.0 runtime behavior and six-file package payload unchanged.
+
 ## 1.0.0
 
 - Promote the proven version 0.4.0 runtime without changing overlay, action, or tray-patch behavior.

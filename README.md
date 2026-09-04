@@ -22,7 +22,9 @@ The source build supports this configuration:
 - Dolphin with KF6 and Qt 6
 - `libnautilus-extension4`
 
-The release packages target Ubuntu 26.04 and Fedora 44 on x86_64. Ubuntu is the supported live target. Fedora package behavior is validated, but Synology Drive runtime support depends on a community package. Fedora runtime reports and focused pull-request fixes are welcome.
+The current source targets Debian 13 and Fedora 44 on x86_64. Debian 13 is the primary DEB target.
+
+Ubuntu 26.04 remains an upgrade-compatibility target for existing DEB installations. Fedora runtime support depends on a community Synology Drive package.
 
 Other internal client majors and malformed client metadata fail without an overlay. The Synology interface is private and can change in a future release.
 
@@ -69,21 +71,23 @@ Read the [production-readiness roadmap](docs/roadmap.md) for accepted packaging,
 
 Read the [security policy](SECURITY.md) for private vulnerability reports. Read [Contributing](CONTRIBUTING.md) before you submit a pull request or a Fedora runtime report.
 
-Install the v1.0.0 Ubuntu package with:
+Download version 1.0.1 from the [GitHub release](https://github.com/calculatetech/synodrive-dolphin/releases/tag/v1.0.1).
+
+Install the DEB on Debian 13 or Ubuntu 26.04 with:
 
 ```bash
-sudo apt install ./synodrive-dolphin_1.0.0-1_amd64.deb
+sudo apt install ./synodrive-dolphin_1.0.1-1_amd64.deb
 ```
 
 On Fedora 44, install the RPM with:
 
 ```bash
-sudo dnf install ./synodrive-dolphin-1.0.0-1.x86_64.rpm
+sudo dnf install ./synodrive-dolphin-1.0.1-1.x86_64.rpm
 ```
 
 ## Development
 
-Run the full Ubuntu and Fedora distribution gate:
+Run the full Debian and Fedora distribution gate:
 
 ```bash
 ./ci/run
@@ -99,13 +103,15 @@ Build and inspect both release packages:
 
 This command writes one DEB and one RPM below `build/packages`. It installs, verifies, and removes each package in a disposable container.
 
-For a release upgrade check, download both published v0.4.0 packages into one directory and run:
+For a release upgrade check, download both published version 1.0.0 packages into one directory. Then run:
 
 ```bash
-./ci/package --upgrade-from /absolute/path/to/v0.4.0-packages
+./ci/package --upgrade-from /absolute/path/to/v1.0.0-packages
 ```
 
-This command verifies both baseline package digests. It tests clean installation and a native v0.4.0-to-v1.0.0 upgrade for each format.
+This command verifies both baseline package digests. It tests clean version 1.0.1 installations on Debian 13 and Fedora 44.
+
+It also tests the DEB upgrade on Ubuntu 26.04 and the RPM upgrade on Fedora 44.
 
 GitHub CI uses the same `./ci/run` command. It starts only when a reviewed draft pull request becomes ready, and after a merge to `main`.
 
