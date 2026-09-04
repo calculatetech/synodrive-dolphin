@@ -108,7 +108,7 @@ The v0.2.0 candidate opened a real synchronized directory in Dolphin. Its 243 in
 
 The internal metadata, ABI directory, mangled symbols, C++ struct layout, raw status values, helper path, and SQLite behavior can change after a Synology update. The executable accepts internal major 4 and checks the ABI directory, library, symbols, exceptions, and raw range. An unsupported installation fails without an overlay.
 
-NUL framing and the KF6 plugin interface are under this project's control. The private helper contract is not. Do not redistribute Synology binaries. A public release needs legal review.
+NUL framing and the KF6 plugin interface are under this project's control. The private helper contract is not. Do not redistribute Synology binaries. This project contains no Synology payload and does not claim a supported Synology API.
 
 ## 10. Prototype and acceptance result
 
@@ -143,6 +143,8 @@ The temporary install manifest for the overlay-only candidate contained:
 No file contains a Synology binary.
 
 Version 0.4.0 adds the private action helper, the KF6 file-action plugin, and the optional tray-patch command. The Ubuntu 26.04 DEB and Fedora 44 RPM contain the same six regular files. Native scanners generate linked-library dependencies. Explicit metadata adds Dolphin and the Nautilus extension runtime. Neither package requires or contains Synology software.
+
+Version 1.0.0 promotes the same runtime and six-file package payload. It adds a package-upgrade gate, complete release documentation, protected pull requests, and review-gated GitHub CI.
 
 The package command also validates each candidate in a clean target container. It uses the native package manager to install, query, verify, and remove the package. The check runs both installed binaries through the dynamic loader. It also confirms the exact file set, metadata, ownership, permissions, command result, license bytes, and complete removal.
 

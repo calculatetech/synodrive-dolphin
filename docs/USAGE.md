@@ -2,6 +2,22 @@
 
 The Synology Drive Dolphin Extension (Unofficial) operates automatically after installation. It adds overlays to local files that Synology Drive knows about.
 
+The supported live system is x86_64 Ubuntu 26.04 with KDE and Qt 6, Synology Drive 8.x, internal client major 4, and icon-overlay ABI 15. Fedora 44 package behavior is validated, but its Synology Drive runtime depends on community packaging.
+
+Install the downloaded Ubuntu package with:
+
+```bash
+sudo apt install ./synodrive-dolphin_1.0.0-1_amd64.deb
+```
+
+On Fedora 44, run:
+
+```bash
+sudo dnf install ./synodrive-dolphin-1.0.0-1.x86_64.rpm
+```
+
+Restart Dolphin after installation or upgrade. See the [installation guide](INSTALL.md) for build, upgrade, and removal commands.
+
 ## Use Dolphin overlays
 
 1. Start Synology Drive.
@@ -157,3 +173,5 @@ The extension sends local path names only to the locally installed Synology help
 The project does not modify Synology databases or synchronization data. SQLite can open its WAL and shared-memory coordination files during a query.
 
 The tray command modifies `cloud-drive-ui` only after an explicit `apply` or source-install choice. Package installation and removal never modify that file.
+
+Use the [bug-report form](https://github.com/calculatetech/synodrive-dolphin/issues/new?template=bug_report.yml) for a reproducible defect. Remove private paths, account names, server names, and generated links. Use the [security policy](../SECURITY.md) for a suspected vulnerability.

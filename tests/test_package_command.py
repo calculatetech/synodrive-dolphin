@@ -9,37 +9,35 @@ import sys
 import tempfile
 
 
-def run(script, root, fail_image=None, argument=None, overrides=None):
+def run(script, root, fail_image=None, arguments=None, overrides=None):
     log = root / "docker.log"
     environment = os.environ.copy()
     environment["PATH"] = f"{root / 'bin'}:{environment['PATH']}"
     environment["FAKE_DOCKER_LOG"] = str(log)
+    environment["FAKE_PLUGIN_ROOT"] = "/usr/lib/x86_64-linux-gnu/qt6/plugins"
     if fail_image:
         environment["FAKE_DOCKER_FAIL_IMAGE"] = fail_image
     if overrides:
         environment.update(overrides)
     command = [str(script)]
-    if argument:
-        command.append(argument)
+    if arguments:
+        command.extend(arguments)
     result = subprocess.run(command, text=True, capture_output=True, env=environment)
     calls = [json.loads(line) for line in log.read_text().splitlines()] if log.exists() else []
     return result, calls
 
 
-def assert_run_boundaries(calls, checkout):
-    assert len(calls) == 8, calls
-    builds = calls[0::2]
-    runs = calls[1::2]
-    assert [call[0] for call in builds] == ["build"] * 4, calls
-    assert [call[0] for call in runs] == ["run"] * 4, calls
+def assert_run_boundaries(calls, checkout, baseline=None):
+    leg_size = 5 if baseline else 4
+    assert len(calls) == leg_size * 2, calls
     legs = [
-        (calls[0:4], "26.04", "DEB", "ubuntu-26.04", "ubuntu.Dockerfile", "synodrive-dolphin_0.4.0-1_amd64.deb"),
-        (calls[4:8], "44", "RPM", "fedora-44", "fedora.Dockerfile", "synodrive-dolphin-0.4.0-1.x86_64.rpm"),
+        (calls[0:leg_size], "26.04", "DEB", "ubuntu-26.04", "ubuntu.Dockerfile", "synodrive-dolphin_1.0.0-1_amd64.deb", "synodrive-dolphin_0.4.0-1_amd64.deb"),
+        (calls[leg_size:leg_size * 2], "44", "RPM", "fedora-44", "fedora.Dockerfile", "synodrive-dolphin-1.0.0-1.x86_64.rpm", "synodrive-dolphin-0.4.0-1.x86_64.rpm"),
     ]
-    for leg, version, package_format, directory, dockerfile, filename in legs:
+    for leg, version, package_format, directory, dockerfile, filename, baseline_filename in legs:
         image = f"synodrive-dolphin-ci:{directory}"
         runtime_image = f"{image}-runtime"
-        build_call, build_run, runtime_call, runtime_run = leg
+        build_call, build_run, runtime_call, runtime_run, *upgrade_runs = leg
         assert build_call == [
             "build", "--file", f"{checkout}/ci/{dockerfile}", "--target", "build",
             "--tag", image, f"{checkout}/ci",
@@ -66,7 +64,7 @@ def assert_run_boundaries(calls, checkout):
         assert "cmake --build /build" in command, command
         assert 'cpack --config /build/CPackConfig.cmake -G "$PACKAGE_FORMAT" -B /packages' in command, command
         assert '/src/ci/validate-package "$PACKAGE_FORMAT" "$artifact"' in command, command
-        assert runtime_run == [
+        expected_runtime = [
             "run", "--rm", "--init", "--network", "none",
             "--mount", f"type=bind,source={checkout},target=/src,readonly",
             "--mount", f"type=bind,source={checkout}/build/packages/{directory},target=/packages,readonly",
@@ -74,7 +72,15 @@ def assert_run_boundaries(calls, checkout):
             "--env", "SYNODRIVE_PACKAGE_CONTAINER=1",
             runtime_image, "/src/ci/validate-package-lifecycle", package_format,
             f"/packages/{filename}",
-        ], runtime_run
+        ]
+        assert runtime_run == expected_runtime, runtime_run
+        if baseline:
+            expected_upgrade = expected_runtime[:9] + [
+                "--mount", f"type=bind,source={baseline},target=/baseline,readonly",
+            ] + expected_runtime[9:] + [f"/baseline/{baseline_filename}"]
+            assert upgrade_runs == [expected_upgrade], upgrade_runs
+        else:
+            assert upgrade_runs == [], upgrade_runs
 
 
 def assert_validator(validator, root):
@@ -177,6 +183,9 @@ def assert_validator(validator, root):
 
 def main():
     source_script = pathlib.Path(sys.argv[1]).resolve()
+    source_text = source_script.read_text()
+    assert "aea6f49a7b67f8fe49124856729d4b8e21654ffd309b14812db446cb96cc37ab" in source_text
+    assert "72c495ed43224e82139ee5b02fd20b6aff8df4bcbb648b4c54d6ca105e4b4cef" in source_text
     cmake = source_script.parent.parent / "CMakeLists.txt"
     cmake_text = cmake.read_text()
     assert "set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)" in cmake_text, cmake
@@ -255,8 +264,13 @@ if args[0] == 'run':
         if environment.get('FAKE_SYNOLOGY_PATH'):
             (lifecycle_root / 'opt/Synology/SynologyDrive').mkdir(parents=True)
         image_index = args.index(image)
+        baseline_mount = next((arg for arg in args if 'target=/baseline' in arg), None)
+        baseline = (pathlib.Path(baseline_mount.split('source=', 1)[1].split(',target=', 1)[0])
+                    if baseline_mount else None)
         command = [
-            value.replace('/src', str(source)).replace('/packages', str(output))
+            value.replace('/src', str(source)).replace('/packages', str(output)).replace(
+                '/baseline', str(baseline) if baseline else '/baseline'
+            )
             for value in args[image_index + 1:]
         ]
         result = subprocess.run(command, env=environment)
@@ -296,7 +310,7 @@ if not os.environ.get('FAKE_CPACK_NO_OUTPUT'):
         package_tool = fake_bin / "package-tool"
         package_tool.write_text(
             """#!/usr/bin/env python3
-import os, pathlib, shutil, sys
+import os, pathlib, shutil, subprocess, sys
 
 tool = pathlib.Path(sys.argv[0]).name
 args = sys.argv[1:]
@@ -335,7 +349,7 @@ lifecycle_files = [command_path, patch_command_path, action_helper_path, plugin_
 def installed_path(path):
     return root / path.lstrip('/')
 
-def install():
+def install(package_path):
     for path in lifecycle_files:
         target = installed_path(path)
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -366,7 +380,7 @@ exit "${FAKE_CLI_STATUS-2}"
         target = installed_path(symlink)
         target.unlink()
         target.symlink_to('/dev/null')
-    state.touch()
+    state.write_text('0.4.0' if '0.4.0' in package_path else '1.0.0')
 
 def inventory():
     files = lifecycle_files.copy()
@@ -419,7 +433,7 @@ elif tool == 'dpkg-deb':
         dependencies = 'dolphin'
     fields = {
         'Package': 'synodrive-dolphin',
-        'Version': '0.4.0-1',
+        'Version': '1.0.0-1',
         'Architecture': 'amd64',
         'Maintainer': 'Michael Beutler <mikebeutler84@gmail.com>',
         'Homepage': 'https://github.com/calculatetech/synodrive-dolphin',
@@ -459,7 +473,7 @@ elif tool == 'dpkg-query':
         if not state.exists() and args[-1:] == ['synodrive-dolphin']:
             sys.exit(1)
         fields = {
-            '${binary:Package}': 'synodrive-dolphin', '${Version}': '0.4.0-1',
+            '${binary:Package}': 'synodrive-dolphin', '${Version}': state.read_text() + '-1',
             '${Architecture}': 'amd64',
             '${Maintainer}': 'Michael Beutler <mikebeutler84@gmail.com>',
             '${Homepage}': 'https://github.com/calculatetech/synodrive-dolphin',
@@ -478,7 +492,7 @@ elif tool == 'dpkg-query':
             print(value, end='')
 elif tool == 'dpkg':
     if args[:1] == ['--install']:
-        install()
+        install(args[1])
     elif args[:1] == ['--verify']:
         if os.environ.get('FAKE_VERIFY_FAIL'):
             print('??5?????? /usr/bin/synodrive-status')
@@ -502,7 +516,7 @@ elif tool == 'rpm':
     if os.environ.get('FAKE_ONE_DEPENDENCY'):
         dependencies = dependencies[:1]
     fields = {
-        '%{NAME}': 'synodrive-dolphin', '%{VERSION}': '0.4.0', '%{RELEASE}': '1',
+        '%{NAME}': 'synodrive-dolphin', '%{VERSION}': '1.0.0', '%{RELEASE}': '1',
         '%{ARCH}': 'x86_64', '%{SUMMARY}': 'Synology Drive Dolphin Extension (Unofficial)',
         '%{LICENSE}': 'MIT', '%{URL}': 'https://github.com/calculatetech/synodrive-dolphin',
         '%{VENDOR}': 'calculatetech',
@@ -529,7 +543,7 @@ elif tool == 'rpm':
     elif args[:2] == ['-q', '--qf']:
         if not state.exists():
             sys.exit(1)
-        value = fields[args[2]]
+        value = state.read_text() if args[2] == '%{VERSION}' else fields[args[2]]
         if os.environ.get('FAKE_LIFECYCLE_BAD_FIELD') == args[2]:
             value = 'wrong'
         print(value, end='')
@@ -544,7 +558,9 @@ elif tool == 'rpm':
         if os.environ.get('FAKE_SYNOLOGY_PACKAGE'):
             print('synology-drive')
     elif args[:1] == ['--install']:
-        install()
+        install(args[1])
+    elif args[:1] == ['--upgrade']:
+        install(args[1])
     elif args[:1] == ['--verify']:
         if os.environ.get('FAKE_VERIFY_FAIL'):
             print('S.5....T.  /usr/bin/synodrive-status')
@@ -578,17 +594,26 @@ elif tool == 'ldd':
 elif tool == 'ldconfig':
     if not os.environ.get('FAKE_MISSING_NAUTILUS'):
         print('libnautilus-extension.so.4 (libc6,x86-64) => /lib/libnautilus-extension.so.4 ')
+elif tool == 'sha256sum':
+    if args == ['--check', '--status']:
+        records = [line.split('  ', 1) for line in sys.stdin.read().splitlines()]
+        if os.environ.get('FAKE_BAD_BASELINE_SHA') or any(
+            len(record) != 2 or not pathlib.Path(record[1]).is_file() for record in records
+        ):
+            sys.exit(1)
+    else:
+        sys.exit(subprocess.run(['/usr/bin/sha256sum', *args]).returncode)
 """
         )
         package_tool.chmod(0o755)
-        for name in ["qtpaths6", "dpkg-deb", "dpkg-query", "dpkg", "rpm", "file", "stat", "ldd", "ldconfig"]:
+        for name in ["qtpaths6", "dpkg-deb", "dpkg-query", "dpkg", "rpm", "file", "stat", "ldd", "ldconfig", "sha256sum"]:
             (fake_bin / name).symlink_to(package_tool)
 
         assert_validator(validator, root)
 
-        rejected, calls = run(script, root, argument="unexpected")
+        rejected, calls = run(script, root, arguments=["unexpected"])
         assert rejected.returncode == 2, rejected
-        assert rejected.stderr == "usage: ./ci/package\n", rejected
+        assert rejected.stderr == "usage: ./ci/package [--upgrade-from DIR]\n", rejected
         assert calls == [], calls
 
         success, calls = run(script, root)
@@ -598,12 +623,39 @@ elif tool == 'ldconfig':
         assert all("fedora-44" in " ".join(call) for call in calls[4:]), calls
         assert_run_boundaries(calls, checkout)
         expected_paths = [
-            str(checkout / "build/packages/ubuntu-26.04/synodrive-dolphin_0.4.0-1_amd64.deb"),
-            str(checkout / "build/packages/fedora-44/synodrive-dolphin-0.4.0-1.x86_64.rpm"),
+            str(checkout / "build/packages/ubuntu-26.04/synodrive-dolphin_1.0.0-1_amd64.deb"),
+            str(checkout / "build/packages/fedora-44/synodrive-dolphin-1.0.0-1.x86_64.rpm"),
         ]
         lines = success.stdout.rstrip().splitlines()
         assert lines[-2:] == expected_paths, success.stdout
         assert all(lines.count(path) == 1 for path in expected_paths), success.stdout
+
+        (root / "docker.log").unlink()
+        relative, calls = run(script, root, arguments=["--upgrade-from", "relative"])
+        assert relative.returncode == 1, relative
+        assert relative.stderr == "error: upgrade directory must be absolute\n", relative
+        assert calls == [], calls
+
+        baseline = root / "baseline"
+        baseline.mkdir()
+        (baseline / "synodrive-dolphin_0.4.0-1_amd64.deb").touch()
+        (baseline / "synodrive-dolphin-0.4.0-1.x86_64.rpm").touch()
+        (root / "docker.log").unlink(missing_ok=True)
+        upgraded, calls = run(
+            script, root, arguments=["--upgrade-from", str(baseline)],
+        )
+        assert upgraded.returncode == 0, upgraded
+        assert_run_boundaries(calls, checkout, baseline)
+        assert any(call[-1] == "/baseline/synodrive-dolphin_0.4.0-1_amd64.deb" for call in calls), calls
+        assert any(call[-1] == "/baseline/synodrive-dolphin-0.4.0-1.x86_64.rpm" for call in calls), calls
+
+        (root / "docker.log").unlink()
+        bad_digest, calls = run(
+            script, root, arguments=["--upgrade-from", str(baseline)],
+            overrides={"FAKE_BAD_BASELINE_SHA": "1"},
+        )
+        assert bad_digest.returncode != 0, bad_digest
+        assert calls == [], calls
 
         unguarded = subprocess.run(
             [lifecycle, "DEB", root / "candidate.deb"], text=True, capture_output=True,
@@ -621,7 +673,7 @@ elif tool == 'ldconfig':
             return result_calls
 
         for package_format in ["DEB", "RPM"]:
-            (root / "docker.log").unlink()
+            (root / "docker.log").unlink(missing_ok=True)
             rejected, calls = run(
                 script, root,
                 overrides={

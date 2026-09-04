@@ -1,0 +1,87 @@
+name: Bug report
+description: Report a problem with overlays, file actions, packaging, or the tray patch.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: Do not include private paths, account names, server names, or generated share links.
+  - type: dropdown
+    id: distribution
+    attributes:
+      label: Linux distribution
+      options:
+        - Ubuntu 26.04
+        - Fedora 44
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: installation
+    attributes:
+      label: Installation method
+      options:
+        - DEB package
+        - RPM package
+        - Source installation
+    validations:
+      required: true
+  - type: input
+    id: extension
+    attributes:
+      label: Extension version
+      placeholder: 1.0.0
+    validations:
+      required: true
+  - type: input
+    id: desktop
+    attributes:
+      label: KDE Plasma and Dolphin versions
+      placeholder: Plasma 6.x, Dolphin 6.x
+    validations:
+      required: true
+  - type: input
+    id: drive
+    attributes:
+      label: Synology Drive versions
+      description: Include the public version, internal version, and icon-overlay ABI directory.
+      placeholder: 8.x; internal 4.x; ABI 15
+    validations:
+      required: true
+  - type: dropdown
+    id: feature
+    attributes:
+      label: Affected feature
+      options:
+        - Status overlay
+        - Get link
+        - Browse previous versions
+        - Tray patch
+        - Installation or removal
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Use placeholder names instead of private paths or account data.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Relevant output
+      description: Remove private paths, account names, server names, and links before you paste output.
+      render: shell
