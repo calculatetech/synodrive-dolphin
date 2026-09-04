@@ -1,10 +1,23 @@
 #!/bin/sh
 set -eu
 
-if [ "$#" -ne 0 ]; then
-    printf '%s\n' 'usage: ./ci/package' >&2
+usage() {
+    printf '%s\n' 'usage: ./ci/package [--upgrade-from DIR]' >&2
     exit 2
-fi
+}
+
+upgrade_dir=
+case $# in
+    0) ;;
+    2)
+        [ "$1" = --upgrade-from ] || usage
+        case $2 in
+            /*) upgrade_dir=$2 ;;
+            *) printf '%s\n' 'error: upgrade directory must be absolute' >&2; exit 1 ;;
+        esac
+        ;;
+    *) usage ;;
+esac
 
 if [ "$(uname -m)" != x86_64 ]; then
     printf '%s\n' 'error: ./ci/package requires x86_64' >&2
@@ -15,6 +28,26 @@ script_dir=${0%/*}
 repo_root=$(CDPATH= cd -- "$script_dir/.." && pwd)
 package_uid=$(id -u)
 package_gid=$(id -g)
+baseline_deb=synodrive-dolphin_0.4.0-1_amd64.deb
+baseline_rpm=synodrive-dolphin-0.4.0-1.x86_64.rpm
+
+if [ -n "$upgrade_dir" ]; then
+    [ -d "$upgrade_dir" ] || {
+        printf '%s\n' "error: upgrade directory does not exist: $upgrade_dir" >&2
+        exit 1
+    }
+    case $upgrade_dir in
+        *','*) printf '%s\n' 'error: upgrade directory contains an unsupported character' >&2; exit 1 ;;
+    esac
+    [ "$(printf '%s' "$upgrade_dir" | wc -l)" -eq 0 ] || {
+        printf '%s\n' 'error: upgrade directory contains an unsupported character' >&2
+        exit 1
+    }
+    printf '%s  %s\n' \
+        aea6f49a7b67f8fe49124856729d4b8e21654ffd309b14812db446cb96cc37ab "$upgrade_dir/$baseline_deb" \
+        72c495ed43224e82139ee5b02fd20b6aff8df4bcbb648b4c54d6ca105e4b4cef "$upgrade_dir/$baseline_rpm" \
+        | sha256sum --check --status
+fi
 
 run_leg() {
     label=$1
@@ -26,6 +59,7 @@ run_leg() {
     directory=$6
     filename=$7
     suffix=$8
+    baseline_filename=$9
 
     output_dir=$repo_root/build/packages/$directory
     artifact=$output_dir/$filename
@@ -68,11 +102,21 @@ run_leg() {
         --env SYNODRIVE_PACKAGE_CONTAINER=1 \
         "$runtime_image" \
         /src/ci/validate-package-lifecycle "$format" "/packages/$filename"
+    if [ -n "$upgrade_dir" ]; then
+        docker run --rm --init --network none \
+            --mount "type=bind,source=$repo_root,target=/src,readonly" \
+            --mount "type=bind,source=$output_dir,target=/packages,readonly" \
+            --mount "type=bind,source=$upgrade_dir,target=/baseline,readonly" \
+            --workdir /src \
+            --env SYNODRIVE_PACKAGE_CONTAINER=1 \
+            "$runtime_image" \
+            /src/ci/validate-package-lifecycle "$format" "/packages/$filename" "/baseline/$baseline_filename"
+    fi
 }
 
-run_leg 'Ubuntu 26.04 package' ubuntu.Dockerfile synodrive-dolphin-ci:ubuntu-26.04 26.04 DEB ubuntu-26.04 synodrive-dolphin_0.4.0-1_amd64.deb deb
-run_leg 'Fedora 44 package' fedora.Dockerfile synodrive-dolphin-ci:fedora-44 44 RPM fedora-44 synodrive-dolphin-0.4.0-1.x86_64.rpm rpm
+run_leg 'Ubuntu 26.04 package' ubuntu.Dockerfile synodrive-dolphin-ci:ubuntu-26.04 26.04 DEB ubuntu-26.04 synodrive-dolphin_1.0.0-1_amd64.deb deb "$baseline_deb"
+run_leg 'Fedora 44 package' fedora.Dockerfile synodrive-dolphin-ci:fedora-44 44 RPM fedora-44 synodrive-dolphin-1.0.0-1.x86_64.rpm rpm "$baseline_rpm"
 
 printf '%s\n' \
-    "$repo_root/build/packages/ubuntu-26.04/synodrive-dolphin_0.4.0-1_amd64.deb" \
-    "$repo_root/build/packages/fedora-44/synodrive-dolphin-0.4.0-1.x86_64.rpm"
+    "$repo_root/build/packages/ubuntu-26.04/synodrive-dolphin_1.0.0-1_amd64.deb" \
+    "$repo_root/build/packages/fedora-44/synodrive-dolphin-1.0.0-1.x86_64.rpm"

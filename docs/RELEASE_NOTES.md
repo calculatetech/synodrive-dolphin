@@ -1,5 +1,14 @@
 # Release notes
 
+## 1.0.0
+
+- Promote the proven version 0.4.0 runtime without changing overlay, action, or tray-patch behavior.
+- Publish native x86_64 packages for Ubuntu 26.04 and Fedora 44.
+- Validate clean package installation and native upgrades from version 0.4.0.
+- Document the support matrix, package installation, upgrades, removal, defect reports, and private security reports.
+- Add draft-first pull requests, protected `main`, and one review-gated Ubuntu and Fedora CI check.
+- Keep Fedora runtime support dependent on community packaging and reports.
+
 ## 0.4.0
 
 - Add native CPack DEB and RPM generation.

@@ -23,33 +23,6 @@ Ubuntu 26.04 LTS and Fedora KDE 44 are the automated package targets. The RPM us
 
 ## Planned later
 
-- **SDD-013 — Inspect Windows Get link behavior.**
-  - Use a current Windows host and record the Synology Drive version and shell-extension registration.
-  - Determine whether “Get link” copies a URL, opens the share window, or exposes another command.
-  - Record the invoked executable, IPC action, or shell command when it is observable.
-  - Redact account data and generated links from committed evidence.
-  - Create a separate Linux task only if the study proves a stable direct-copy interface.
-  - Do not block SDD-008 or version 1.0 on this study.
-
-- **SDD-012 — Prove a persistent GLib-aware status worker.**
-  - Load the Synology status libraries once in a separate process.
-  - Dispatch the required GLib main context without blocking Dolphin.
-  - Prove live status transitions, repeated queries, and process recovery.
-  - Adopt the worker only when it stays current and reduces active-sync CPU use.
-
-- **SDD-009 — Complete the v1.0 gate.**
-  - Document the support matrix and package commands in the README, installation guide, and usage guide.
-  - Add a focused bug-report form and `SECURITY.md`.
-  - Request Fedora runtime reports and encourage fixes through pull requests.
-  - Complete a real Ubuntu desktop smoke test for overlays, live transitions, Dolphin restart, context actions, and removal.
-  - Complete the final correctness and documentation reviews before the `v1.0.0` tag.
-
-- **SDD-010 — Add protected GitHub CI after v1.0.**
-  - Start this task only after the `v1.0.0` release.
-  - Run the local distribution gate for pushes and pull requests without path filters.
-  - Give the workflow one unique required status check.
-  - Require that check on `main` through branch protection.
-
 - **SDD-006 — Automate tagged releases after v1.0.**
   - Start this task only after the `v1.0.0` release and SDD-010.
   - For a `vX.Y.Z` tag, require the tag and CMake project version to match.
@@ -68,6 +41,11 @@ Ubuntu 26.04 LTS and Fedora KDE 44 are the automated package targets. The RPM us
 
 The project does not plan these items for v1.0:
 
+- **SDD-012 — Prove a persistent GLib-aware status worker.**
+  - The worker stayed on `syncing` for 120 seconds after transfer completion.
+  - The user selected the released version 0.4.0 runtime for version 1.0.0.
+  - The failed experiment and its evidence remain available for future research.
+
 - Hosted APT or DNF repositories
 - Project GPG key management
 - ARM packages
@@ -79,6 +57,20 @@ The project does not plan these items for v1.0:
 Use `synodrive-status <absolute-path>` for command-line troubleshooting.
 
 ## Completed
+
+- **SDD-010 — Add protected GitHub CI for v1.0.**
+  - Protected `main` with pull requests, resolved conversations, strict checks, and no bypass actor.
+  - Kept task-branch pushes and draft pull requests free of hosted CI runs.
+  - Ran the local gate only after clean reviews.
+  - Passed the required `distribution-gate` after the reviewed draft became ready.
+
+- **SDD-009 — Complete the v1.0 gate.**
+  - Kept the released version 0.4.0 runtime unchanged in version 1.0.0.
+  - Passed the documentation, package-upgrade, desktop, review, protected-PR, and initial hosted CI gates.
+  - Prepared version 1.0.0 for publication from the reviewed and validated `main` commit.
+
+- **SDD-013 — Inspect Windows Get link behavior.**
+  - Current Windows behavior matches Linux. No follow-on action is required.
 
 - **SDD-015 — Add an opt-in tray left-click patch.**
   - Installed a user-invoked command that can inspect, apply, and restore the patch.
@@ -109,7 +101,7 @@ Use `synodrive-status <absolute-path>` for command-line troubleshooting.
   - Install and remove each package in disposable Ubuntu and Fedora containers.
   - Validate the executable, plugin, license, metadata, permissions, and shared-library resolution.
   - Make sure that package removal leaves no owned files.
-  - Add an upgrade test after the first packaged release exists.
+  - Test native upgrades from the published version 0.4.0 packages.
 
 - **SDD-004 — Produce DEB and RPM packages.**
   - Use the CPack DEB and RPM generators.
@@ -124,7 +116,7 @@ Use `synodrive-status <absolute-path>` for command-line troubleshooting.
 - **SDD-002 — Add local distribution CI.**
   - Provide one `./ci/run` command that builds and runs all tests in pinned `ubuntu:26.04` and `fedora:44` Docker containers.
   - Use the existing fake helper. Never download Synology software in CI.
-  - Keep all GitHub Actions and branch protection work after `v1.0.0`.
+  - The later SDD-009 decision moves GitHub Actions and branch protection before `v1.0.0`.
 
 - **SDD-003 — Support Synology Drive 8.x.**
   - Read the installed client's internal `INFO` metadata instead of the Debian package version.
@@ -138,6 +130,6 @@ Use `synodrive-status <absolute-path>` for command-line troubleshooting.
   - Emit overlay notifications only when the visible overlay changes.
   - Preserve the isolated fresh-child status query.
 
-Production readiness is complete when SDD-002 through SDD-005, SDD-007, and SDD-009 are complete.
+Production readiness is complete when SDD-002 through SDD-005, SDD-007, SDD-009, and SDD-010 are complete.
 
 SDD-008 must be complete or declined with evidence from SDD-007. Each non-trivial task gets an ExecPlan when it becomes active.

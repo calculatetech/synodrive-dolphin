@@ -56,7 +56,7 @@ The build creates these delivery files:
 - `build/synodrive-overlay.so`
 - `build/synodrive-fileitemaction.so`
 
-## Build package candidates
+## Build release packages
 
 Use Docker to build the official Ubuntu 26.04 DEB and Fedora 44 RPM:
 
@@ -66,10 +66,18 @@ Use Docker to build the official Ubuntu 26.04 DEB and Fedora 44 RPM:
 
 The command writes these files:
 
-- `build/packages/ubuntu-26.04/synodrive-dolphin_0.4.0-1_amd64.deb`
-- `build/packages/fedora-44/synodrive-dolphin-0.4.0-1.x86_64.rpm`
+- `build/packages/ubuntu-26.04/synodrive-dolphin_1.0.0-1_amd64.deb`
+- `build/packages/fedora-44/synodrive-dolphin-1.0.0-1.x86_64.rpm`
 
 The command verifies package identity, payload, dependencies, and architecture. It also installs, verifies, and removes each package in a disposable container.
+
+To test an upgrade from the published v0.4.0 packages, put both v0.4.0 assets in one directory. Then run:
+
+```bash
+./ci/package --upgrade-from /absolute/path/to/v0.4.0-packages
+```
+
+The command verifies the published package digests. It tests a clean v1.0.0 installation and a native v0.4.0-to-v1.0.0 upgrade for both formats.
 
 For a native package build, install `dpkg-dev` and `file` for DEB output. Install `rpm-build` for RPM output. Then configure and build the source before you run one generator:
 
@@ -80,18 +88,20 @@ cpack --config build/CPackConfig.cmake -G RPM -B build/packages/host
 
 Run only the generator that matches the package tools on the current system.
 
-## Install a package candidate
+## Install a release package
+
+Download the package for your distribution from the [v1.0.0 GitHub release](https://github.com/calculatetech/synodrive-dolphin/releases/tag/v1.0.0).
 
 On Ubuntu 26.04, install the DEB:
 
 ```bash
-sudo apt install ./build/packages/ubuntu-26.04/synodrive-dolphin_0.4.0-1_amd64.deb
+sudo apt install ./synodrive-dolphin_1.0.0-1_amd64.deb
 ```
 
 On Fedora 44, install the RPM:
 
 ```bash
-sudo dnf install ./build/packages/fedora-44/synodrive-dolphin-0.4.0-1.x86_64.rpm
+sudo dnf install ./synodrive-dolphin-1.0.0-1.x86_64.rpm
 ```
 
 Restart Dolphin after installation.
@@ -204,6 +214,22 @@ Internal major 4 remains supported when the private ABI checks pass. Other major
 
 The Synology upgrade can replace the tray patch. Run `synodrive-tray-patch status` after the upgrade. Apply it again only if the command recognizes the new executable.
 
+## Upgrade a package installation
+
+Download the v1.0.0 package for your distribution. Install it with the same command used for a new installation:
+
+```bash
+sudo apt install ./synodrive-dolphin_1.0.0-1_amd64.deb
+```
+
+On Fedora 44, run:
+
+```bash
+sudo dnf upgrade ./synodrive-dolphin-1.0.0-1.x86_64.rpm
+```
+
+Restart Dolphin after the upgrade. Package upgrades do not apply or restore the optional tray patch.
+
 ## Remove a package installation
 
 If you applied the tray patch, restore it before you remove this package:
@@ -227,8 +253,6 @@ sudo dnf remove synodrive-dolphin
 ```
 
 Then restart Dolphin. Package removal does not apply or restore the tray patch. It does not change Synology settings or synchronization data.
-
-Package upgrade instructions will be added after the first package release exists.
 
 ## Remove a source installation
 

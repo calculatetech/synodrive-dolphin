@@ -22,7 +22,7 @@ The source build supports this configuration:
 - Dolphin with KF6 and Qt 6
 - `libnautilus-extension4`
 
-The official package candidates target Ubuntu 26.04 and Fedora 44. Synology supports Ubuntu. Fedora depends on a community-packaged Synology Drive client.
+The release packages target Ubuntu 26.04 and Fedora 44 on x86_64. Ubuntu is the supported live target. Fedora package behavior is validated, but Synology Drive runtime support depends on a community package. Fedora runtime reports and focused pull-request fixes are welcome.
 
 Other internal client majors and malformed client metadata fail without an overlay. The Synology interface is private and can change in a future release.
 
@@ -49,7 +49,7 @@ Synology Drive decides which actions are available. Get link opens the Synology 
 
 ## Optional tray patch
 
-Synology Drive Client does not open its tray menu after a normal left click on Linux. Version 0.4.0 includes an optional patch for recognized internal-major-4 executables.
+Synology Drive Client does not open its tray menu after a normal left click on Linux. The extension includes an optional patch for recognized internal-major-4 executables.
 
 Package and default source installation do not apply the patch. Run `synodrive-tray-patch apply` to opt in. Run `synodrive-tray-patch restore` before you remove the extension. You must restart Synology Drive Client after either change.
 
@@ -67,6 +67,20 @@ Read the [release notes](docs/RELEASE_NOTES.md) for changes in each published ve
 
 Read the [production-readiness roadmap](docs/roadmap.md) for accepted packaging, compatibility, CI, and context-menu work.
 
+Read the [security policy](SECURITY.md) for private vulnerability reports. Read [Contributing](CONTRIBUTING.md) before you submit a pull request or a Fedora runtime report.
+
+Install the v1.0.0 Ubuntu package with:
+
+```bash
+sudo apt install ./synodrive-dolphin_1.0.0-1_amd64.deb
+```
+
+On Fedora 44, install the RPM with:
+
+```bash
+sudo dnf install ./synodrive-dolphin-1.0.0-1.x86_64.rpm
+```
+
 ## Development
 
 Run the full Ubuntu and Fedora distribution gate:
@@ -77,13 +91,23 @@ Run the full Ubuntu and Fedora distribution gate:
 
 The first run downloads and builds the toolchain images. Later runs reuse Docker image layers.
 
-Build and inspect both official package candidates:
+Build and inspect both release packages:
 
 ```bash
 ./ci/package
 ```
 
 This command writes one DEB and one RPM below `build/packages`. It installs, verifies, and removes each package in a disposable container.
+
+For a release upgrade check, download both published v0.4.0 packages into one directory and run:
+
+```bash
+./ci/package --upgrade-from /absolute/path/to/v0.4.0-packages
+```
+
+This command verifies both baseline package digests. It tests clean installation and a native v0.4.0-to-v1.0.0 upgrade for each format.
+
+GitHub CI uses the same `./ci/run` command. It starts only when a reviewed draft pull request becomes ready, and after a merge to `main`.
 
 For a fast build on the current host, run:
 
