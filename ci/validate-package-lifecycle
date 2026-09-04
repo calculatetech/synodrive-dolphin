@@ -92,13 +92,13 @@ case $format in
         fi
         if [ -n "$baseline" ]; then
             dpkg --install "$baseline"
-            [ "$(query_deb '${Version}')" = 0.4.0-1 ]
+            [ "$(query_deb '${Version}')" = 1.0.0-1 ]
             [ "$(sha256sum "$unpatched_target"; /usr/bin/stat -c '%u:%g %a' "$unpatched_target")" = "$unpatched_before" ]
             [ "$(sha256sum "$patched_target"; /usr/bin/stat -c '%u:%g %a' "$patched_target")" = "$patched_before" ]
         fi
         dpkg --install "$artifact"
         [ "$(query_deb '${binary:Package}')" = "$package" ]
-        [ "$(query_deb '${Version}')" = 1.0.0-1 ]
+        [ "$(query_deb '${Version}')" = 1.0.1-1 ]
         [ "$(query_deb '${Architecture}')" = amd64 ]
         [ "$(query_deb '${Maintainer}')" = 'Michael Beutler <mikebeutler84@gmail.com>' ]
         [ "$(query_deb '${Homepage}')" = https://github.com/calculatetech/synodrive-dolphin ]
@@ -114,7 +114,7 @@ case $format in
         fi
         if [ -n "$baseline" ]; then
             rpm --install "$baseline"
-            [ "$(query_rpm '%{VERSION}')" = 0.4.0 ]
+            [ "$(query_rpm '%{VERSION}')" = 1.0.0 ]
             [ "$(sha256sum "$unpatched_target"; /usr/bin/stat -c '%u:%g %a' "$unpatched_target")" = "$unpatched_before" ]
             [ "$(sha256sum "$patched_target"; /usr/bin/stat -c '%u:%g %a' "$patched_target")" = "$patched_before" ]
             rpm --upgrade "$artifact"
@@ -122,7 +122,7 @@ case $format in
             rpm --install "$artifact"
         fi
         [ "$(query_rpm '%{NAME}')" = "$package" ]
-        [ "$(query_rpm '%{VERSION}')" = 1.0.0 ]
+        [ "$(query_rpm '%{VERSION}')" = 1.0.1 ]
         [ "$(query_rpm '%{RELEASE}')" = 1 ]
         [ "$(query_rpm '%{ARCH}')" = x86_64 ]
         [ "$(query_rpm '%{SUMMARY}')" = 'Synology Drive Dolphin Extension (Unofficial)' ]

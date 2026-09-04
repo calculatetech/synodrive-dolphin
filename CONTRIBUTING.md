@@ -2,7 +2,7 @@
 
 ## Report Fedora results
 
-Fedora 44 packages pass automated package checks. Synology does not publish a Fedora client. If you use a community package, report runtime results or submit a focused pull request.
+Debian 13 and Fedora 44 packages pass automated package checks. Synology does not publish a Fedora client. If you use a community package, report runtime results or submit a focused pull request.
 
 ## Submit a pull request
 

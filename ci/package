@@ -28,8 +28,8 @@ script_dir=${0%/*}
 repo_root=$(CDPATH= cd -- "$script_dir/.." && pwd)
 package_uid=$(id -u)
 package_gid=$(id -g)
-baseline_deb=synodrive-dolphin_0.4.0-1_amd64.deb
-baseline_rpm=synodrive-dolphin-0.4.0-1.x86_64.rpm
+baseline_deb=synodrive-dolphin_1.0.0-1_amd64.deb
+baseline_rpm=synodrive-dolphin-1.0.0-1.x86_64.rpm
 
 if [ -n "$upgrade_dir" ]; then
     [ -d "$upgrade_dir" ] || {
@@ -44,8 +44,8 @@ if [ -n "$upgrade_dir" ]; then
         exit 1
     }
     printf '%s  %s\n' \
-        aea6f49a7b67f8fe49124856729d4b8e21654ffd309b14812db446cb96cc37ab "$upgrade_dir/$baseline_deb" \
-        72c495ed43224e82139ee5b02fd20b6aff8df4bcbb648b4c54d6ca105e4b4cef "$upgrade_dir/$baseline_rpm" \
+        b080ca138ffbfb5383beae9008e3aadb2f0ee6c56e2b3b46612bdf951d75fe0a "$upgrade_dir/$baseline_deb" \
+        b804cb8a29f9d0ddf5acdc442db3d07f3d302922456c7cb3ac7a336602193f3e "$upgrade_dir/$baseline_rpm" \
         | sha256sum --check --status
 fi
 
@@ -60,6 +60,9 @@ run_leg() {
     filename=$7
     suffix=$8
     baseline_filename=$9
+    shift 9
+    upgrade_dockerfile=$1
+    upgrade_runtime_image=$2
 
     output_dir=$repo_root/build/packages/$directory
     artifact=$output_dir/$filename
@@ -103,20 +106,23 @@ run_leg() {
         "$runtime_image" \
         /src/ci/validate-package-lifecycle "$format" "/packages/$filename"
     if [ -n "$upgrade_dir" ]; then
+        if [ "$upgrade_runtime_image" != "$runtime_image" ]; then
+            docker build --file "$repo_root/ci/$upgrade_dockerfile" --target runtime --tag "$upgrade_runtime_image" "$repo_root/ci"
+        fi
         docker run --rm --init --network none \
             --mount "type=bind,source=$repo_root,target=/src,readonly" \
             --mount "type=bind,source=$output_dir,target=/packages,readonly" \
             --mount "type=bind,source=$upgrade_dir,target=/baseline,readonly" \
             --workdir /src \
             --env SYNODRIVE_PACKAGE_CONTAINER=1 \
-            "$runtime_image" \
+            "$upgrade_runtime_image" \
             /src/ci/validate-package-lifecycle "$format" "/packages/$filename" "/baseline/$baseline_filename"
     fi
 }
 
-run_leg 'Ubuntu 26.04 package' ubuntu.Dockerfile synodrive-dolphin-ci:ubuntu-26.04 26.04 DEB ubuntu-26.04 synodrive-dolphin_1.0.0-1_amd64.deb deb "$baseline_deb"
-run_leg 'Fedora 44 package' fedora.Dockerfile synodrive-dolphin-ci:fedora-44 44 RPM fedora-44 synodrive-dolphin-1.0.0-1.x86_64.rpm rpm "$baseline_rpm"
+run_leg 'Debian 13 package' debian.Dockerfile synodrive-dolphin-ci:debian-13 13 DEB debian-13 synodrive-dolphin_1.0.1-1_amd64.deb deb "$baseline_deb" ubuntu.Dockerfile synodrive-dolphin-ci:ubuntu-26.04-runtime
+run_leg 'Fedora 44 package' fedora.Dockerfile synodrive-dolphin-ci:fedora-44 44 RPM fedora-44 synodrive-dolphin-1.0.1-1.x86_64.rpm rpm "$baseline_rpm" fedora.Dockerfile synodrive-dolphin-ci:fedora-44-runtime
 
 printf '%s\n' \
-    "$repo_root/build/packages/ubuntu-26.04/synodrive-dolphin_1.0.0-1_amd64.deb" \
-    "$repo_root/build/packages/fedora-44/synodrive-dolphin-1.0.0-1.x86_64.rpm"
+    "$repo_root/build/packages/debian-13/synodrive-dolphin_1.0.1-1_amd64.deb" \
+    "$repo_root/build/packages/fedora-44/synodrive-dolphin-1.0.1-1.x86_64.rpm"

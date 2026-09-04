@@ -2,18 +2,20 @@
 
 The Synology Drive Dolphin Extension (Unofficial) operates automatically after installation. It adds overlays to local files that Synology Drive knows about.
 
-The supported live system is x86_64 Ubuntu 26.04 with KDE and Qt 6, Synology Drive 8.x, internal client major 4, and icon-overlay ABI 15. Fedora 44 package behavior is validated, but its Synology Drive runtime depends on community packaging.
+The primary DEB target is x86_64 Debian 13 with KDE and Qt 6. Ubuntu 26.04 remains an upgrade-compatibility target.
 
-Install the downloaded Ubuntu package with:
+The client must use public version 8.x, internal major 4, and icon-overlay ABI 15. Fedora 44 runtime support depends on community packaging.
+
+Download version 1.0.1 from the [GitHub release](https://github.com/calculatetech/synodrive-dolphin/releases/tag/v1.0.1). On Debian 13 or Ubuntu 26.04, install the DEB with:
 
 ```bash
-sudo apt install ./synodrive-dolphin_1.0.0-1_amd64.deb
+sudo apt install ./synodrive-dolphin_1.0.1-1_amd64.deb
 ```
 
 On Fedora 44, run:
 
 ```bash
-sudo dnf install ./synodrive-dolphin-1.0.0-1.x86_64.rpm
+sudo dnf install ./synodrive-dolphin-1.0.1-1.x86_64.rpm
 ```
 
 Restart Dolphin after installation or upgrade. See the [installation guide](INSTALL.md) for build, upgrade, and removal commands.
