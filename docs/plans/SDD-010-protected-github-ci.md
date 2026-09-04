@@ -1,6 +1,6 @@
 # Add protected GitHub CI for version 1.0
 
-This ExecPlan is a living specification until review closure. Maintain it in accordance with `/home/mbeutler/.codex/PLANS.md`.
+This ExecPlan records the completed protected GitHub CI gate. Maintain it in accordance with `/home/mbeutler/.codex/PLANS.md`.
 
 ## Purpose / Big Picture
 
@@ -20,6 +20,12 @@ Changes after version 0.4.0 must reach `main` through a reviewed pull request. A
 ## Outcomes & Retrospective
 
 Version 1.0 uses a protected, draft-first pull-request workflow. The outcome is visible when the reviewed release pull request and its merged `main` commit both have a successful `distribution-gate` result.
+
+GitHub ruleset `22244652` protects `main` without a bypass actor. It requires a pull request, resolved conversations, and the strict `distribution-gate` check.
+
+The task-branch push and draft pull request created no Actions run. Local Ubuntu 26.04 and Fedora 44 gates passed after both reviews were clean.
+
+The first ready transition started one hosted run for commit `7e3eb7adb3f1da3c3e676fbf2ecd1c0fd679def8`. Run `33835906565` passed in 20 minutes and 12 seconds.
 
 ## Context and Orientation
 

@@ -19,21 +19,9 @@ Ubuntu 26.04 LTS and Fedora KDE 44 are the automated package targets. The RPM us
 
 ## Active
 
-- **SDD-009 — Complete the v1.0 gate.**
-  - Use the released version 0.4.0 runtime as the version 1.0.0 base.
-  - Complete the documentation, package-upgrade, desktop, review, protected-PR, and CI gates.
-  - Publish version 1.0.0 only from the reviewed and validated `main` commit.
-
 ## Planned next
 
 ## Planned later
-
-- **SDD-010 — Add protected GitHub CI for v1.0.**
-  - Complete this task as a prerequisite of the active SDD-009 release gate.
-  - Run the local distribution gate after clean pull-request reviews.
-  - Run the same gate when a reviewed draft becomes ready and after a merge to `main`.
-  - Give the workflow one unique required status check.
-  - Require pull requests and that check on `main` through a GitHub ruleset.
 
 - **SDD-006 — Automate tagged releases after v1.0.**
   - Start this task only after the `v1.0.0` release and SDD-010.
@@ -69,6 +57,17 @@ The project does not plan these items for v1.0:
 Use `synodrive-status <absolute-path>` for command-line troubleshooting.
 
 ## Completed
+
+- **SDD-010 — Add protected GitHub CI for v1.0.**
+  - Protected `main` with pull requests, resolved conversations, strict checks, and no bypass actor.
+  - Kept task-branch pushes and draft pull requests free of hosted CI runs.
+  - Ran the local gate only after clean reviews.
+  - Passed the required `distribution-gate` after the reviewed draft became ready.
+
+- **SDD-009 — Complete the v1.0 gate.**
+  - Kept the released version 0.4.0 runtime unchanged in version 1.0.0.
+  - Passed the documentation, package-upgrade, desktop, review, protected-PR, and initial hosted CI gates.
+  - Prepared version 1.0.0 for publication from the reviewed and validated `main` commit.
 
 - **SDD-013 — Inspect Windows Get link behavior.**
   - Current Windows behavior matches Linux. No follow-on action is required.

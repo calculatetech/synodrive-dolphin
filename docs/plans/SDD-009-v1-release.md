@@ -1,6 +1,6 @@
 # Release version 1.0 from the version 0.4 runtime
 
-This ExecPlan is a living specification until review closure. Maintain it in accordance with `/home/mbeutler/.codex/PLANS.md`.
+This ExecPlan records the completed version 1.0 release gate. Maintain it in accordance with `/home/mbeutler/.codex/PLANS.md`.
 
 ## Purpose / Big Picture
 
@@ -24,6 +24,12 @@ Version 1.0 gives users a documented and validated stable release without changi
 ## Outcomes & Retrospective
 
 Version 1.0 retains the version 0.4 overlay, action, compatibility, performance, and optional tray-patch behavior. The release adds a protected delivery path, a native package-upgrade proof, complete user documentation, and focused support channels.
+
+The host build passed all five tests. Both package formats passed clean-install and version 0.4.0 upgrade validation.
+
+The exact DEB passed the live desktop sequence. Overlays disappeared after package removal and reappeared after the same package was reinstalled.
+
+The first protected `distribution-gate` passed on commit `7e3eb7adb3f1da3c3e676fbf2ecd1c0fd679def8`. GitHub Actions run `33835906565` completed in 20 minutes and 12 seconds.
 
 ## Context and Orientation
 
